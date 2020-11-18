@@ -27,7 +27,7 @@ gpl_to_file <- list(
 #' gene_to_id = process.gpl("GPL96")
 #'
 process.gpl <- function(chip) {
-  gpl_data = read.gpl(GPL_CHIPS[[chip]])
+  gpl_data = read.gpl(gpl_to_file[[chip]])
   gpl_data = gpl_data[ ,"ENTREZ_GENE_ID", drop=FALSE]
 }
 

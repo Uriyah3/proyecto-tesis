@@ -14,7 +14,7 @@ source("data_sampling.r")
 testFile = paste(sampleDir, "/Leukemia_GSE28497-3-col-sample-5-percent.csv", sep="")
 data <- readFile(testFile)
 
-datasets = list(
+datasets <- list(
   Leukemia = list(
     name = "Leukemia_GSE28497",
     chip = "GPL96",
@@ -49,10 +49,13 @@ datasets = list(
     name = "Prostate_GSE46602",
     chip = "GPL570",
     type = "evaluation"
-  ),
+  )
 )
 
 data <- clean.and.translate.entrez.id(data, "GPL96")
 
 expressionMatrix = expression.matrix(t(data))
 biologicalMatrix = biological.matrix.go(colnames(data))
+
+set.seed(1048)
+results <- nsga2.custom(expressionMatrix, biologicalMatrix)

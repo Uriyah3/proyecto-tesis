@@ -19,7 +19,7 @@ population    "--population "   i   (20, 150)
 crossover     "--crossover "    r   (0.0001, 0.9999)
 mutation      "--mutation "     r   (0.0001, 0.9999)
 tour_size     "--tour_size "    i   (2, 10)
-neighborhood  "--neighborhood " r   (0.01, 0.99)
+neighborhood  "--neighborhood " r   (0.01, 1.99)
 local_search  "--local_search " c   (pls,pr,pr,mols,nols,mosa)
 ls_pos        "--ls_pos"        c   (0, 1, 2, 3)
 pls_param     "--pls_param"     r   (0, 1)              | local_search == "pls"

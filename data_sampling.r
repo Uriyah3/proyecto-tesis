@@ -7,21 +7,27 @@
 # Can create various samples from the same dataset
 # Stores the generated files in data/training/samples
 
+# Refactor code to use parameters instead of constants
 # % that will be sampled from rows and columns
-PERCENTAGE_SAMPLING <- 10
+PERCENTAGE_SAMPLING <- 5
 # Number of samples that are generated for each file
-SAMPLES_PER_FILE <- 40
+SAMPLES_PER_FILE <- 5
 # Minimum amount of biological samples
 MINIMUM_ROW_SIZE <- 50
 # Minimum amount of genes
-MINIMUM_COL_SIZE <- 2500
+MINIMUM_COL_SIZE <- 500
+
+dataDir <- "data/training/"
+dataFiles <- list.files(dataDir)
+dataFiles <- paste0(dataDir, dataFiles)
+sampleDir <- paste(dataDir, "samples", sep="")
 
 ###### Function definitions ######
 
 # Load comma separated text file named dataFile
 readFile <- function(dataFile) {
   
-  data <- read.csv(dataFile, header = TRUE, sep = ",", quote= "", dec = ".", row.names = 1)
+  data <- read.csv(dataFile, header = TRUE, sep = ",", quote= "", dec = ".", row.names = 1, check.names = FALSE)
 }
 
 # Generates and saves sample_number samples from data
@@ -62,11 +68,7 @@ generateAndSaveSample <- function(data, rows, cols, outputFile) {
 }
 
 ###### Main loop ######
-runSampling <- function() {
-  dataDir <- "data/training/"
-  dataFiles <- list.files(dataDir)
-  dataFiles <- paste0(dataDir, dataFiles)
-  sampleDir <- paste(dataDir, "samples", sep="")
+runSampling <- function(samples_per_file = 10, percentage_samp) {
   
   for (dataFile in dataFiles) {
     generateSamples(dataFile, SAMPLES_PER_FILE)

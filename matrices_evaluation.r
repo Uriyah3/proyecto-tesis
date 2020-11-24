@@ -31,15 +31,17 @@ expression.matrix <- function(gene_profiles, metric = 'abscorrelation', nbproc =
 }
 
 biological.matrix.fill.missing <- function(gene_list, bmatrix) {
-  fill_value <- min(max(bmatrix) * 1.02, 1.00)
+  fill_value <- min(max(bmatrix) * 1.01, 1.00)
   
   bmatrix <- as.data.frame(bmatrix)
   bmatrix[gene_list[!(gene_list %in% rownames(bmatrix))], ] <- NA
   bmatrix[ , gene_list[!(gene_list %in% colnames(bmatrix))]] <- NA
   bmatrix[is.na(bmatrix)] <- fill_value
   
-  # Temporal fix for distance = 0
-  #bmatrix[ bmatrix == 0 ] <- min( bmatrix[bmatrix > 0.001] ) * 0.5
+  # Temporal fix for distance = 0 (on non diagonals)
+  bmatrix[ bmatrix == 0 ] <- min( bmatrix[bmatrix > 0.001] ) * 0.5
+  # Set diagonal to be 0
+  bmatrix[ row(bmatrix) == col(bmatrix) ] <- 0
   return( bmatrix )
 }
 

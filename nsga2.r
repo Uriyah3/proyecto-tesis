@@ -69,6 +69,11 @@ fitness.medoid <- function(cluster_solution, gene_dmatrix) {
     medoid_index[medoid] = grep( paste("^", cluster_solution[medoid], "$", sep=""), colnames(gene_dmatrix) )
   }
   
+  # Might need to pre-calculate every clustering for every medoid (and for both distance matrices)
+  # UPDATE: Wait... I can't do that, that would be almost brute forcing the problem, since the clustering
+  # depends on the other medoids and I would need to run every combination. On that note
+  # do I even need to square the distance to a medoid? I don't think I do, since
+  # I just need the closest medoid to each gene. That is enough to find the clustering.
   clustering <- apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)])
   
   XB <- tryCatch(
@@ -131,36 +136,37 @@ operator.nsga2.sorting.and.crowding <- function(population, dmatrix_expression, 
   return( population )
 }
 
-operator.local.search <- function(should_apply, population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params) {
+operator.local.search <- function(should_apply, population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search) {
   if( should_apply == TRUE && !is.null(local_search) ) {
     population <- population[,1:num_clusters]
     
     if( local_search == "pls" ) 
     {
-      new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     } 
     else if( local_search == "nmols" ) 
     {
-      new_population <- local.search.narrow.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.narrow.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     }
     else if( local_search == "lnols" )
     {
-      new_population <- local.search.large.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.large.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     }
     else if( local_search == "mosa" )
     {
-      new_population <- local.search.mosa(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.mosa(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     }
     else if( local_search == "ensemble" )
     {
-      new_population <- local.search.ensemble(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.ensemble(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     }
     else if( local_search == "pr" )
     {
-      new_population <- local.search.path.relinking(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$neighborhood)
+      new_population <- local.search.path.relinking(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
     }
     
     new_population <- new_population[, 1:num_clusters]
+    rownames(new_population) <- 1:nrow(new_population)
     
     population <- rbind(population, new_population)
     population <- helper.randomize.duplicates(population, gene_list, num_clusters)
@@ -258,6 +264,8 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
   dmatrix_expression <- helper.order.matrix(dmatrix_expression)
   dmatrix_biological <- helper.order.matrix(dmatrix_biological)
   
+  gene_list <- colnames(dmatrix_expression)
+  
   if( !is.null(local_search) ) {
     # Sum distance matrix
     dmatrix_combined <- dmatrix_expression + dmatrix_biological
@@ -268,12 +276,10 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
     })
   }
   
-  gene_list <- colnames(dmatrix_expression)
-  
   population_parents <- generate.initial.population(gene_list, population_size, num_clusters)
   population_parents <- operator.nsga2.sorting.and.crowding(population_parents, dmatrix_expression, dmatrix_biological)
   
-  population_parents <- operator.local.search(ls_pos == 1, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, list(neighborhood=neighborhood))
+  population_parents <- operator.local.search(ls_pos == 1, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search)
   g = 1
   
   while( g <= generations ) {
@@ -286,11 +292,11 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
     population_mix <- operator.nsga2.sorting.and.crowding(population_mix, dmatrix_expression, dmatrix_biological)
     population_parents = population_mix[ 1:population_size, ]
     
-    population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, list(neighborhood=neighborhood))
+    population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search)
     
     g = g + 1
   }
-  population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, list(neighborhood=neighborhood))
+  population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search)
   results = population_parents
   
   return( results )

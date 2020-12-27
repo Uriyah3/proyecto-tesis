@@ -6,6 +6,18 @@ library(org.Hs.eg.db)
 library(KEGGREST)
 library(STRINGdb)
 
+#' Calculate the expression matrix using the data in \code{gene_profiles} and store
+#' the resulting data frame into cache. Loads the data from cache it it was
+#' calculated before.
+#' 
+#' @param gene_profiles Matrix of gene/samples.
+#' @param metric Metric used to calculate amap:Dist. Default: 'abscorrelation'
+#' @param nbproc Number of processed to use in amap::Dist. Default: 2
+#' @param dataset Name of the dataset being processed. Used to store the resulting
+#' matrix into cache.
+#' @return Data frame with expression matrix. This means, pairwise distance
+#' between genes.
+#'
 clean.and.translate.entrez.id <- function(data, chip) {
   # Sanity check if R added an X to the column name
   gene_list = colnames(data)
@@ -28,6 +40,18 @@ clean.and.translate.entrez.id <- function(data, chip) {
   return( data )
 }
 
+#' Calculate the expression matrix using the data in \code{gene_profiles} and store
+#' the resulting data frame into cache. Loads the data from cache it it was
+#' calculated before.
+#' 
+#' @param gene_profiles Matrix of gene/samples.
+#' @param metric Metric used to calculate amap:Dist. Default: 'abscorrelation'
+#' @param nbproc Number of processed to use in amap::Dist. Default: 2
+#' @param dataset Name of the dataset being processed. Used to store the resulting
+#' matrix into cache.
+#' @return Data frame with expression matrix. This means, pairwise distance
+#' between genes.
+#'
 expression.matrix <- function(gene_profiles, metric = 'abscorrelation', nbproc = 2, dataset = '') {
   if( dataset != '' ) {
     datafile <- tools::file_path_sans_ext(basename(dataset))
@@ -47,7 +71,7 @@ expression.matrix <- function(gene_profiles, metric = 'abscorrelation', nbproc =
 }
 
 #' Check if the pair of dataset and biological database have been calculated before
-#' (check in cache). Otherwise, calculate them and store into cache.
+#' (check in cache) and return it. Otherwise, calculate them and store into cache.
 #' 
 #' @param gene_list Vector of genes using their entrezgene_id.
 #' @param database Name of the biological data source (check globals.r)

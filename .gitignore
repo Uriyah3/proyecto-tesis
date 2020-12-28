@@ -1,5 +1,3 @@
-data/training/samples/*
-
 /build/
 build_*/
 build-*/

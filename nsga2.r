@@ -316,7 +316,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
     mating_pool <- operator.selection(population_parents, population_size, tour_size)
     
     population_children <- operator.crossover.random(population_size, num_clusters, mating_pool, crossover_ratio)
-    #Should be replacing repeated medoids around here
+    #Should be replacing repeated medoids around here. AFTER NOTE: They are being replaced on join.populations
     population_children <- operator.mutation.random(gene_list, num_clusters, population_children, mutation_ratio)
     
     population_mix <- operator.join.populations(population_parents, population_children, num_clusters, gene_list)

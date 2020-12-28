@@ -1,4 +1,5 @@
 library(stringr)
+library(tools)
 source("file_utils.r")
 
 #' Create sampled data
@@ -21,9 +22,11 @@ run.sampling <- function(samples_per_file = 10, sampling_percent = 5, minimum_ro
   data_files <- list.files(data_dir)
   data_files <- paste0(data_dir, data_files)
   for (data_file in data_files) {
-    print(str_interp("Generating samples for: ${data_file} ..."))
-    generate.samples(data_file, samples_per_file, sampling_percent, minimum_row_size, minimum_col_size)
-    gc()
+    if(file_ext(data_file) == 'gz' || file_ext(data_file) == 'csv') {
+      print(str_interp("Generating samples for: ${data_file} ..."))
+      generate.samples(data_file, samples_per_file, sampling_percent, minimum_row_size, minimum_col_size)
+      gc()
+    }
   }
   return()
 }

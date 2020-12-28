@@ -100,7 +100,7 @@ helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_
   colnames(new_solutions) <- "explored"
   
   explored <- explored[ rownames(explored) %in% rownames(archive) , , drop=FALSE]
-  explored <- rbind(  new_solutions, explored )
+  explored <- rbind( new_solutions, explored )
   
   explored <- explored[ order(row.names(explored)), , drop=FALSE ]
   archive <- archive[ order(row.names(archive)), , drop=FALSE ]
@@ -118,12 +118,7 @@ helper.dominates <- function(objective_exp, objective_bio, solution) {
           ( objective_bio < solution$objective_bio && objective_exp <= solution$objective_exp ) )
 }
 
-#' 
-#' 
-#' 
-#' 
-#' 
-#' 
+#' This became part of normal pls when rank_cutoff is equal to 1.
 local.search.frontier.pareto.local.search <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
@@ -204,26 +199,14 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
       }
     }
     
-    # Add solutions found in the neighborhood if it dominates the solution it was based on
+    # Add solutions found in the neighborhood if there are any that passed the
+    # acceptance criteria used
     if( sum(medoid_neighborhood[, ncol(medoid_neighborhood)]) > 1 ) {
-      add_archive <- medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ]
-      explored <- archive[ , "explored", drop=FALSE]
-      
-      new_archive <- helper.randomize.duplicates( rbind( archive[, 1:num_clusters], add_archive), gene_list, num_clusters )
-      archive <- ordering_fn(new_archive, dmatrix_expression, dmatrix_biological)
-      archive <- archive[archive$solutions_rank <= rank_cutoff, ]
-      
-      new_solutions <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
-      new_solutions <- as.data.frame(rep( FALSE,length(new_solutions) ))
-      rownames(new_solutions) <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
-      colnames(new_solutions) <- "explored"
-      
-      explored <- explored[ rownames(explored) %in% rownames(archive) , , drop=FALSE]
-      explored <- rbind(  new_solutions, explored )
-      
-      explored <- explored[ order(row.names(explored)), , drop=FALSE ]
-      archive <- archive[ order(row.names(archive)), , drop=FALSE ]
-      archive <- cbind( archive, explored )
+      archive <- helper.cut.and.join.archive(
+        archive, 
+        medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ],
+        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff
+      )
     }
     
     
@@ -293,21 +276,17 @@ local.search.narrow.mols <- function(population_size, population, num_clusters, 
 }
 
 # Multiobjective simulated annealing
-local.seach.mosa <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
+local.seach.mosa <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 10, min_temperature = 0.001, max_temperature = 1000) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
   
-  max_rank <- 10
   step <- 0
   max_steps <- 500
   row_name_id <- 0
-  min_temperature <- 0.0001
-  max_temperature <- 100
-  
   archive <- archive[archive$solutions_rank <= max_rank, ]
   
-  while( step < max_steps ) {
+  while( temperature > 0 ) {
     temperature <- (step + 1) / max_steps
     
     row_index <- rownames( archive[ sample(nrow(archive), 1), ] )[1]
@@ -322,32 +301,18 @@ local.seach.mosa <- function(population_size, population, num_clusters, gene_lis
       objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
       
       # If it passes the acceptance criteria or if it 
-      if( helper.dominates(objective_exp, objective_bio, solution) ||
+      if( acceptance_criteria_fn(objective_exp, objective_bio, solution) ||
           TRUE) {
         medoid_neighborhood[i, num_clusters+1] <- TRUE
       }
     }
     
-    # Add solutions found in the neighborhood if it dominates the solution it was based on
     if( sum(medoid_neighborhood[, ncol(medoid_neighborhood)]) > 1 ) {
-      add_archive <- medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ]
-      explored <- archive[ , "explored", drop=FALSE]
-      
-      new_archive <- helper.randomize.duplicates( rbind( archive[, 1:num_clusters], add_archive), gene_list, num_clusters )
-      archive <- ordering_fn(new_archive, dmatrix_expression, dmatrix_biological)
-      archive <- archive[archive$solutions_rank <= max_rank, ]
-      
-      new_solutions <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
-      new_solutions <- as.data.frame(rep( FALSE,length(new_solutions) ))
-      rownames(new_solutions) <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
-      colnames(new_solutions) <- "explored"
-      
-      explored <- explored[ rownames(explored) %in% rownames(archive) , , drop=FALSE]
-      explored <- rbind(  new_solutions, explored )
-      
-      explored <- explored[ order(row.names(explored)), , drop=FALSE ]
-      archive <- archive[ order(row.names(archive)), , drop=FALSE ]
-      archive <- cbind( archive, explored )
+      archive <- helper.cut.and.join.archive(
+        archive, 
+        medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ],
+        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff 
+      )
     }
     
     
@@ -356,7 +321,7 @@ local.seach.mosa <- function(population_size, population, num_clusters, gene_lis
     }
     step <- step + 1
     
-    #print(step)
+    #print(paste(step, temperature, sep=" - "))
     #print(archive)
   }
   
@@ -364,11 +329,11 @@ local.seach.mosa <- function(population_size, population, num_clusters, gene_lis
   return( archive )
 }
 
-# Multiobjective clustering ensemble local search, rank cutoff may be a parameter too
-local.search.ensemble <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, ordering_fn, fitness_fn) {
+# Multiobjective clustering ensemble local search
+local.search.ensemble <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, ordering_fn, fitness_fn, rank_cutoff = 1) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
-  archive <- archive[archive$solutions_rank <= 2, ]
+  archive <- archive[archive$solutions_rank <= rank_cutoff, ]
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
   
   new_archive <- archive[1, 1:num_clusters, drop=FALSE]
@@ -388,7 +353,7 @@ local.search.ensemble <- function(population_size, population, num_clusters, gen
         objective_exp <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_expression )
         objective_bio <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_biological )
         
-        if( helper.non.dominated(objective_exp, objective_bio, archive[first_idx, ]) &&
+        if( helper.non.dominated(objective_exp, objective_bio, archive[first_idx, ]) ||
             helper.non.dominated(objective_exp, objective_bio, archive[second_idx, ]) ) {
           
           # This process may find duplicates. At the end of this algorithm this is addressed.
@@ -402,7 +367,6 @@ local.search.ensemble <- function(population_size, population, num_clusters, gen
   }
   
   new_archive <- helper.randomize.duplicates(new_archive, gene_list, num_clusters)
-  # new_archive <- new_archive[ !duplicated(new_archive[, 1:num_clusters]), ]
   
   print( paste("Clustering ensemble ran for", step, "iterations") )
   return( new_archive )

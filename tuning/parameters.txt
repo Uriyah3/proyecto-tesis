@@ -14,17 +14,18 @@ dlb          "--dlb "         c    (0, 1)               | localsearch %in% c(1,2
 
 
 generations, population_size, crossover_ratio, mutation_ratio, tour_size, neighborhood, local_search=FALSE, ls_pos=FALSE
-generations   "--generations "  i   (20, 150)
-population    "--population "   i   (20, 150)
-crossover     "--crossover "    r   (0.0001, 0.9999)
-mutation      "--mutation "     r   (0.0001, 0.9999)
-tour_size     "--tour_size "    i   (2, 10)
-neighborhood  "--neighborhood " r   (0.01, 1.99)
-local_search  "--local_search " c   (pls,pr,pr,mols,nols,mosa)
-ls_pos        "--ls_pos"        c   (0, 1, 2, 3)
-pls_param     "--pls_param"     r   (0, 1)              | local_search == "pls"
-pr_param      "--pr_param"      r   (0, 1)              | local_search == "pr"
-ce_param      "--ce_param"      r   (0, 1)              | local_search == "ce"
-mols_param    "--mols_param"    r   (0, 1)              | local_search == "mols"
-nols_param    "--nols_param"    r   (0, 1)              | local_search == "nols"
-mosa_param    "--mosa_param"    r   (0, 1)              | local_search == "mosa"
+generations               "--generations "    i   (20, 150)
+population                "--population "     i   (20, 200)
+crossover_ratio           "--crossover "      r   (0.01, 0.99)
+mutation_ratio            "--mutation "       r   (0.01, 0.99)
+tour_size                 "--tour_size "      i   (2, 10)
+neighborhood              "--neighborhood "   r   (0.10, 1.99)
+local_search              "--local_search "   c   (NULL, pls, lmols, nmols, mosa, ensemble)
+ls_pos                    "--ls_pos"          c   (NULL, 1, 2, 3)
+acceptance_criteria_fn    "--acc_fn"          c   (helper.dominates, helper.non.dominated) | (local_search == "pls" || local_search == "mosa")
+pls_rank_cutoff           "--pls_rank_cutoff" i   (1, 15)             | local_search == "pls"
+pls_max_generations       "--pls_max_gens"    i   (20, 300)           | local_search == "pls"
+ce_rank_cutoff            "--ce_rank_cutoff"  i   (1, 3)              | local_search == "ce"
+mosa_rank_cutoff          "--mosa_rank_cutoff" i  (5, 20)             | local_search == "mosa"
+min_temp                  "--min_temp"        r   (0.01, 50)          | local_search == "mosa"
+max_temp                  "--max_temp"        r   (51, 1000)          | local_search == "mosa"

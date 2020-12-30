@@ -1,4 +1,4 @@
-#¿ Local search algorithms used in this work
+#' Local search algorithms used in this work
 local_search_algorithms <- list(
   fpls = "frontier pareto local search",
   pls = "pareto local search",
@@ -16,5 +16,6 @@ biological_databases <- list(
   kegg = "KEGG-pathway",
   mesh = "MeSH",
   do = "disease",
-  disgenet = "disgenet"
+  disgenet_dis = "disgenet-disease",
+  disgenet_pw = "disgenet-pathway"
 )

@@ -14,16 +14,17 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 #BiocManager::install("STRINGdb")
 #X library(pathifier)
 #X install.packages("neo4jshell")
+#BiocManager::install("qusage")
 
 source("nsga2.r")
 source("matrices_evaluation.r")
-source("data_sampling.r")
 source("globals.r")
 source("evaluator.r")
+source("file_utils.r")
 
-test_file_name <- 'Leukemia_GSE28497-3-col-sample-5-percent.csv'
-test_file <- paste(sampleDir, "/", test_file_name, sep="")
-data <- readFile(test_file)
+test_file_name <- 'Leukemia_GSE28497.csv-2-all-sample-5-percent.csv'
+test_file <- paste("data/training/samples/", test_file_name, sep="")
+data <- read.dataset(test_file)
 
 datasets <- list(
   Leukemia = list(

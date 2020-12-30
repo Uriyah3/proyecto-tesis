@@ -5,6 +5,8 @@ library("amap")
 library(org.Hs.eg.db)
 library(KEGGREST)
 library(STRINGdb)
+library(BioCor)
+library(reshape2)
 
 #' Calculate the expression matrix using the data in \code{gene_profiles} and store
 #' the resulting data frame into cache. Loads the data from cache it it was
@@ -99,6 +101,10 @@ biological.matrix <- function(gene_list, database, dataset = '') {
       dmatrix <- biological.matrix.mesh(gene_list)
     } else if( database == biological_databases$do ) {
       dmatrix <- biological.matrix.disease.ontology(gene_list)
+    } else if( database == biological_databases$disgenet_pw ) {
+      dmatrix <- biological.matrix.disgenet.pathway(gene_list)
+    } else if( database == biological_databases$disgenet_dis ) {
+      dmatrix <- biological.matrix.disgenet.disease(gene_list)
     } else {
       stop("Wrong database name given")
     }
@@ -299,5 +305,54 @@ biological.matrix.disease.ontology <- function(gene_list) {
   matrix <- DOSE::geneSim(gene_list, gene_list, measure="Wang")
   # Transform the similarity matrix into a distance matrix 1-Wang
   matrix <- as.matrix(as.dist(1-matrix))
+  return( biological.matrix.fill.missing(gene_list, matrix) )
+}
+
+#' Calculate a biological distance matrix between the genes in \code{gene_list}
+#' using Disgenet as the biological data source.
+#' This version uses diseases as 'pathways' the same way they are used in the
+#' kegg pathway method, i.e. group by genes => diseases to be able to utilize
+#' the BioCor::mgeneSim method.
+#' 
+#' @param gene_list Vector of genes using their entrezgene_id.
+#' @return Data frame with biological distance between all pair of genes in \code{gene_list}
+#'
+biological.matrix.disgenet.pathway <- function(gene_list) {
+  file <- STRINGdb::downloadAbsentFile('https://www.disgenet.org/static/disgenet_ap1/files/downloads/gmt_files/disgenet.all.v7.entrez.gmt', 'disgenet')
+  file_data <- qusage::read.gmt(file)
+  data_grouped_by_gene <- reverseSplit(file_data)
+  
+  matrix <- BioCor::mgeneSim(gene_list, data_grouped_by_gene, method="BMA")
+  # Transform the similarity matrix into a distance matrix 1-sim
+  matrix <- as.matrix(as.dist(1-matrix))
+  return( biological.matrix.fill.missing(gene_list, matrix) )
+}
+
+
+#' Calculate a biological distance matrix between the genes in \code{gene_list}
+#' using Disgenet as the biological data source.
+#' This version uses diseases to 'profile' genes, generating gene-disease profiles.
+#' Theses profiles are then compared the same way as gene-expression profiles,
+#' i.e. using abscorrelation to identify the distance between genes.
+#' 
+#' @param gene_list Vector of genes using their entrezgene_id.
+#' @return Data frame with biological distance between all pair of genes in \code{gene_list}
+#'
+biological.matrix.disgenet.disease <- function(gene_list) {
+  disgenet_cache_filename <- "cache/disgenet-gene-disease-profiles.rda"
+  if( file.exists(disgenet_cache_filename) ) {
+    gd_dist <- readRDS(disgenet_cache_filename)
+  } else {
+    file <- STRINGdb::downloadAbsentFile('https://www.disgenet.org/static/disgenet_ap1/files/downloads/all_gene_disease_associations.tsv.gz', 'disgenet')
+    file_data <- read.table(file, header=TRUE, sep="\t", fill = TRUE)
+    gene_disease_profiles <- dcast(filtered_data, geneId ~ diseaseId, value.var="score", fill=0)
+    gene_disease_profiles$Var.2 <- NULL
+    rownames(gene_disease_profiles) <- gene_disease_profiles$geneId 
+    gene_disease_profiles$geneId <- NULL
+    gd_dist <- expression.matrix(gene_disease_profiles)
+    saveRDS(hsamd, file = gd_dist)
+  }
+  matrix <- gd_dist[ rownames(gd_dist) %in% gene_list, colnames(gd_dist) %in% gene_list ]
+  
   return( biological.matrix.fill.missing(gene_list, matrix) )
 }

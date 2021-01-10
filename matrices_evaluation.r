@@ -54,17 +54,17 @@ clean.and.translate.entrez.id <- function(data, chip) {
 #' @return Data frame with expression matrix. This means, pairwise distance
 #' between genes.
 #'
-expression.matrix <- function(gene_profiles, metric = 'abscorrelation', nbproc = 2, dataset = '') {
+expression.matrix <- function(gene_profiles, metric = 'pearson', nbproc = 2, dataset = '') {
   if( dataset != '' ) {
     datafile <- tools::file_path_sans_ext(basename(dataset))
-    cached_filename <- paste("cache/", datafile, "-expression.rda", sep="")
+    cached_filename <- paste("cache/", datafile, '-', metric, "-expression.rda", sep="")
     
     if( file.exists(cached_filename) ) {
       return( readRDS(cached_filename) )
     }
   }
   
-  data <- as.data.frame( as.matrix(amap::Dist(gene_profiles, metric, nbproc = 2)) )
+  data <- as.data.frame( as.matrix(amap::Dist(gene_profiles, method = metric, nbproc = nbproc)) )
   if( dataset != '' ) {
     saveRDS(data, file = cached_filename)
   }
@@ -193,7 +193,7 @@ helper.download.kegg <- function() {
 #'
 biological.matrix.kegg.pathway <- function(gene_list) {
   d <- helper.download.kegg()
-  matrix <- BioCor::mgeneSim(gene_list, d, method="BMA")
+  matrix <- BioCor::mgeneSim(gene_list, d, method="max")
   # Transform the similarity matrix into a distance matrix 1-sim
   matrix <- as.matrix(as.dist(1-matrix))
   return( biological.matrix.fill.missing(gene_list, matrix) )
@@ -345,7 +345,7 @@ biological.matrix.disgenet.disease <- function(gene_list) {
   } else {
     file <- STRINGdb::downloadAbsentFile('https://www.disgenet.org/static/disgenet_ap1/files/downloads/all_gene_disease_associations.tsv.gz', 'disgenet')
     file_data <- read.table(file, header=TRUE, sep="\t", fill = TRUE)
-    gene_disease_profiles <- dcast(filtered_data, geneId ~ diseaseId, value.var="score", fill=0)
+    gene_disease_profiles <- dcast(file_data, geneId ~ diseaseId, value.var="score", fill=0)
     gene_disease_profiles$Var.2 <- NULL
     rownames(gene_disease_profiles) <- gene_disease_profiles$geneId 
     gene_disease_profiles$geneId <- NULL

@@ -15,6 +15,7 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 #X library(pathifier)
 #X install.packages("neo4jshell")
 #BiocManager::install("qusage")
+#install.packages('hash')
 
 source("nsga2.r")
 source("matrices_evaluation.r")
@@ -72,4 +73,4 @@ dmatrix_expression = expression.matrix(t(data), dataset=test_file_name)
 dmatrix_biological = biological.matrix(gene_list, biological_databases$go, dataset=test_file_name)
 
 set.seed(1048)
-results <- nsga2.custom(dmatrix_expression, dmatrix_biological, ls_pos = 2, local_search = local_search_algorithms$pls, population_size = 20, generations = 10, neighborhood = 0.80)
+results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 40, generations = 10, neighborhood = 1.01, num_clusters = 5, ls_pos=2, local_search = local_search_algorithms$pls)

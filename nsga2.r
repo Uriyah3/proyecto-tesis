@@ -2,11 +2,14 @@ library(nsga2R)
 library(matrixcalc)
 library(pdist)
 library(CLAV)
+library(hash)
 
 source("local_search.r")
 source("globals.r")
 
 packages = c("nsga2R")
+fitness_counter = 0
+fitness_hash
 
 helper.order.matrix <- function(matrix) {
   matrix[ order( as.numeric(rownames(matrix)) ), order( as.numeric(colnames(matrix)) ) ]
@@ -39,13 +42,21 @@ generate.initial.population <- function(genes, population_size, num_clusters) {
   as.data.frame( t(sapply( 1:population_size, function(x) sample( genes, num_clusters, replace=F ) )) )
 }
 
-objective.functions <- function(cluster_solutions, dmatrix) {
+objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {
   objective_indices <- vector()
   for(i in 1:nrow(cluster_solutions)) {
-    objective_indices[i] <- fitness.medoid( cluster_solutions[i, ], dmatrix )
+    objective_indices[i] <- fitness.medoid.wg( cluster_solutions[i, ], dmatrix, type )
   }
   
   return( objective_indices )
+}
+
+medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) {
+  medoid_solution <- as.list(medoid_solution)
+  while(sum(duplicated(medoid_solution)) > 0) {
+    medoid_solution[duplicated(medoid_solution)] <- sample(gene_list, sum(duplicated(medoid_solution)), replace=F)
+  }
+  return(as.data.frame(medoid_solution))
 }
 
 fitness.medoid <- function(cluster_solution, gene_dmatrix) {
@@ -97,12 +108,49 @@ fitness.medoid <- function(cluster_solution, gene_dmatrix) {
   return( XB )
 }
 
+fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
+  if(is.character(type)) {
+    # Revisar si se ha calculado esta solución con esta matriz anteriormente
+    key <- paste(paste(sort(cluster_solution), collapse=","), type)
+    if(has.key(key, fitness_hash)) {
+      return( fitness_hash[[key]] )
+    }
+  }
+  
+  fitness_counter <<- fitness_counter + 1
+  # Calcular distancia mínima de cada gene a su cluster.
+  elements <- nrow( gene_dmatrix )
+  medoids <- length( cluster_solution )
+  distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ]
+  
+  # Promediar distancia de un gen a su cluster con la minima distancia a otro cluster
+  Rm <- sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } )
+  
+  # Sacar el Jk de cada cluster
+  clustering <- apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)])
+  Jk <- t( as.data.frame(rbind(Rm, clustering)) )
+  Jk <- transform(Jk, Rm = as.numeric(Rm))
+  elements_k <- aggregate(Rm ~ clustering, Jk, length)
+  Jk <- aggregate(Rm ~ clustering, Jk, mean)
+  Jk <- sapply(Jk$Rm, function(x) max(0, x))
+  
+  # Sacar el C promediado (necesita la cantidad de elementos por cluster)
+  WG <- sum(Jk * elements_k$Rm) / elements
+  
+  if(is.character(type)) {
+    # Guardar en el hash
+    fitness_hash[[key]] <<- WG
+  }
+  
+  return( WG )
+}
+
 operator.nsga2.sorting.and.crowding <- function(population, dmatrix_expression, dmatrix_biological) {
   
   population_size <- nrow(population)
   
-  objective_exp <- objective.functions( population, dmatrix_expression )
-  objective_bio <- objective.functions( population, dmatrix_biological )
+  objective_exp <- objective.functions( population, dmatrix_expression, 'expression' )
+  objective_bio <- objective.functions( population, dmatrix_biological, 'biological' )
   
   objectives <- cbind( objective_exp, objective_bio )
   obj_range <- ( apply(objectives, 2, max) - apply(objectives, 2, min) )
@@ -123,37 +171,33 @@ operator.local.search <- function(should_apply, population_size, population, num
   if( should_apply == TRUE && !is.null(local_search) ) {
     population <- population[,1:num_clusters]
     
-    if( local_search == local_search_algorithms$fpls ) 
-    {
-      new_population <- local.search.frontier.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
-    }
-    else if( local_search == local_search_algorithms$pls ) 
+    if( local_search == local_search_algorithms$pls ) 
     {
       if( is.null(ls_params) ) {
-        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
+        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
       } else {
-        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$max_generations)
+        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$max_generations)
       }
     } 
     else if( local_search == local_search_algorithms$nmols ) 
     {
-      new_population <- local.search.narrow.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
+      new_population <- local.search.narrow.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
     }
     else if( local_search == local_search_algorithms$lmols )
     {
-      new_population <- local.search.large.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
+      new_population <- local.search.large.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
     }
     else if( local_search == local_search_algorithms$mosa )
     {
-      new_population <- local.search.mosa(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
+      new_population <- local.search.mosa(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
     }
     else if( local_search == local_search_algorithms$ensemble )
     {
-      new_population <- local.search.ensemble(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, operator.nsga2.sorting.and.crowding, fitness.medoid)
+      new_population <- local.search.ensemble(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
     }
     else if( local_search == local_search_algorithms$pr )
     {
-      new_population <- local.search.path.relinking(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid)
+      new_population <- local.search.path.relinking(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
     }
     else {
       stop("Wrong local search algorithm specified")
@@ -170,7 +214,7 @@ operator.local.search <- function(should_apply, population_size, population, num
   return( population )
 }
 
-operator.crossover.random <- function(population_size, num_clusters, mating_pool, crossover_ratio) {
+operator.crossover.random <- function(gene_list, population_size, num_clusters, mating_pool, crossover_ratio) {
   population_children <- as.data.frame( matrix(0, population_size * 2, num_clusters) )
   
   for( i in 1:population_size ) {
@@ -189,15 +233,10 @@ operator.crossover.random <- function(population_size, num_clusters, mating_pool
     }
   }
   
-  # Check if any solution has the same medoid multiple times, since this
-  # representation should not have duplicated medoids in the same solution
-  # NOTE: duplicates are treated when joining populations.
-  # for( i in 1:nrow(population_children) ) {
-  #  solution <- population_children[i, 1:num_clusters]
-  #  if( sum( duplicated(t(solution)) ) > 0 ) {
-  #    population_children <- population_children[-i, ]
-  #  }
-  #}
+  # Randomize any duplicated medoids in solutions
+  for( i in 1:nrow(population_children) ) {
+    population_children[i, 1:num_clusters] <- medoid.fix.representation(gene_list, population_children[i, 1:num_clusters], num_clusters)
+  }
   
   return( population_children )
 }
@@ -244,7 +283,7 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
   
   elements <- nrow( dmatrix_expression )
   for( i in 1:nrow(population) ) {
-    cluster_solution <- population[i, 1:6]
+    cluster_solution <- population[i, 1:num_clusters]
     medoids <- length( cluster_solution )
     distance_to_medoids <- dmatrix_expression[rownames(dmatrix_expression) %in% cluster_solution, ]
     
@@ -294,6 +333,11 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
   
   gene_list <- colnames(dmatrix_expression)
   
+  # Contador de fitness y hash de fitness
+  fitness_counter <<- 0
+  clear(fitness_hash)
+  fitness_hash <<- hash()
+  
   if( !is.null(local_search) ) {
     # Sum distance matrix
     dmatrix_combined <- dmatrix_expression + dmatrix_biological
@@ -315,8 +359,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
     
     mating_pool <- operator.selection(population_parents, population_size, tour_size)
     
-    population_children <- operator.crossover.random(population_size, num_clusters, mating_pool, crossover_ratio)
-    #Should be replacing repeated medoids around here. AFTER NOTE: They are being replaced on join.populations
+    population_children <- operator.crossover.random(gene_list, population_size, num_clusters, mating_pool, crossover_ratio)
     population_children <- operator.mutation.random(gene_list, num_clusters, population_children, mutation_ratio)
     
     population_mix <- operator.join.populations(population_parents, population_children, num_clusters, gene_list)
@@ -329,11 +372,13 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=6,
     
     results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
     metrics <- evaluator.multiobjective.clustering( results, dmatrix_expression )
+    print(population_parents)
     print(metrics)
   }
   population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params)
   
   results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
+  print(paste("Se realizaron", fitness_counter, "calculos de la función de fitness"))
   
   return( results )
 }

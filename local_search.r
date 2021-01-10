@@ -17,35 +17,38 @@
 #' @return A matrix with neighboring solutions.
 #' 
 helper.generate.neighborhood <- function(population_size, num_clusters, solutions, neighborhood_matrix, row_name_id) {
-  medoid_neighborhood <- as.data.frame( matrix(0, population_size, num_clusters) )
+  medoid_neighborhood <- as.data.frame( matrix(0, population_size, (num_clusters+4)) )
+  colnames(medoid_neighborhood) <- colnames(solutions[, 1:(num_clusters+4)])
   for(medoid_generated in 1:nrow(medoid_neighborhood)) {
     medoid <- solutions[ sample(1:nrow(solutions), 1), ]
     
+    # Find genes that have at least 1 neighbor
+    genes_with_neighbors <- medoid[, 1:num_clusters]
+    genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {length(neighborhood_matrix[[gene]]) > 0}) ) ]
+    
     # Random neighborhood
     # Change a random amount of genes in the solution to a random neighboring gene.
-    # genes_to_change <- sample(colnames(medoid[, 1:num_clusters]), sample(1:num_clusters, 1))
-    # for(gene_index in 1:length(genes_to_change)) {
-    #   gene <- medoid[, genes_to_change[gene_index] ]
-    #   if( length( neighborhood_matrix[[gene]] ) > 0 ) {
-    #     neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
-    #     
-    #     if( !(neighbor_gene %in% medoid[, 1:6]) ) {
-    #       medoid[, gene_index] <- neighbor_gene
-    #     }
-    #   }
-    # }
-    # medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
+    genes_to_change <- sample(colnames(genes_with_neighbors), sample(1:length(genes_with_neighbors), 1))
+    for(gene_index in 1:length(genes_to_change)) {
+      gene <- medoid[, genes_to_change[gene_index] ]
+      neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
+
+      if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {
+        medoid[, gene_index] <- neighbor_gene
+      }
+    }
     
     # 1 change to neighborhood
-    genes_with_neighbors <- medoid[, 1:num_clusters]
-    # Find genes that have at least 1 neighbor
-    gene <- sample(genes_with_neighbors, 1)
-    neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
-
-    if( !(neighbor_gene %in% medoid[, 1:6]) ) {
-      medoid[, gene_index] <- neighbor_gene
-    }
-    medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
+    # gene <- sample(genes_with_neighbors, 1)[1, ]
+    # neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
+    # 
+    # gene_index <- sample(1:num_clusters, 1)
+    # if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {
+    #   medoid[, gene_index] <- neighbor_gene
+    # }
+    
+    # medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
+    medoid_neighborhood[medoid_generated, ] <- medoid[, 1:(num_clusters+4)]
   }
   
   #print( paste("Neighbors found:", nrow(medoid_neighborhood), "without duplication")  )
@@ -89,7 +92,6 @@ helper.generate.ensemble <- function(first_solution, second_solution, row_name_i
 
 helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_clusters, ordering_fn, rank_cutoff) {
   explored <- archive[ , "explored", drop=FALSE]
-  
   new_archive <- helper.randomize.duplicates( rbind( archive[, 1:num_clusters], add_to_archive), gene_list, num_clusters )
   archive <- ordering_fn(new_archive, dmatrix_expression, dmatrix_biological)
   archive <- archive[archive$solutions_rank <= rank_cutoff, ]
@@ -118,60 +120,13 @@ helper.dominates <- function(objective_exp, objective_bio, solution) {
           ( objective_bio < solution$objective_bio && objective_exp <= solution$objective_exp ) )
 }
 
-#' This became part of normal pls when rank_cutoff is equal to 1.
-local.search.frontier.pareto.local.search <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
-  
-  archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
-  archive <- archive[archive$solutions_rank == 1, ]
-  archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
-    
-  max_generations <- 50
-  g <- 1
-  row_name_id <- 0
-  
-  while( sum(archive[, ncol(archive)]) < nrow(archive) && g <= max_generations ) {
-    archive[, ncol(archive)] <- TRUE
-    
-    # Generate neighborhood
-    medoid_neighborhood <- helper.generate.neighborhood(population_size * nrow(archive) * 2, num_clusters, archive, neighborhood_matrix, row_name_id)
-    row_name_id <- row_name_id + population_size * nrow(archive) * 2 + 1
-    
-    for(i in 1:nrow(medoid_neighborhood)) {
-      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression )
-      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
-      
-      if( sum( archive[ archive$objective_bio > objective_bio, "objective_bio" ] ) > 0 || 
-          sum( archive[ archive$objective_exp > objective_exp, "objective_exp"  ] ) > 0 ) {
-        medoid_neighborhood[i, num_clusters+1] <- TRUE
-      }
-    }
-    
-    # Add solutions found in the neighborhood if any non-dominated solution was found
-    if( sum(medoid_neighborhood[, ncol(medoid_neighborhood)]) > 1 ) {
-      archive <- helper.cut.and.join.archive(
-        archive, 
-        medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ],
-        gene_list, num_clusters, ordering_fn, rank_cutoff = 1
-      )
-    }
-    
-    g <- g + 1
-    
-    #print(g)
-    #print(archive)
-  }
-  
-  print( paste("Frontier Pareto local search ran for", g, "iterations") )
-  return( archive )
-}
-
 #' 
 #' 
 #' 
 #' 
 #' 
 #' 
-local.search.pareto.local.search <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 10, max_generations = 150) {
+local.search.pareto.local.search <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 10, max_generations = 500) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
@@ -191,11 +146,13 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
     row_name_id <- row_name_id + population_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
-      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression )
-      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
+      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
+      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological, 'biological' )
+      medoid_neighborhood[i, "objective_exp"] <- objective_exp
+      medoid_neighborhood[i, "objective_bio"] <- objective_bio
       
       if( acceptance_criteria_fn(objective_exp, objective_bio, solution) ) {
-        medoid_neighborhood[i, num_clusters+1] <- TRUE
+        medoid_neighborhood[i, "add"] <- TRUE
       }
     }
     
@@ -204,7 +161,7 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
     if( sum(medoid_neighborhood[, ncol(medoid_neighborhood)]) > 1 ) {
       archive <- helper.cut.and.join.archive(
         archive, 
-        medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ],
+        medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:(num_clusters+4) ],
         gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff
       )
     }
@@ -215,9 +172,11 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
     }
     g <- g + 1
     
-    print(g)
-    print(archive)
+    #print(g)
+    #print(archive)
   }
+  archive <- helper.randomize.duplicates( archive, gene_list, num_clusters )
+  archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   
   print( paste("Pareto local search ran for", g, "iterations") )
   return( archive )
@@ -237,8 +196,8 @@ local.search.large.mols <- function(population_size, population, num_clusters, g
     row_name_id <- row_name_id + population_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
-      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression )
-      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
+      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
+      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological, 'biological' )
       
       if( helper.non.dominated(objective_exp, objective_bio, solution) ) {
         archive <- rbind(archive, medoid_neighborhood[i, 1:num_clusters])
@@ -263,8 +222,8 @@ local.search.narrow.mols <- function(population_size, population, num_clusters, 
     row_name_id <- row_name_id + population_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
-      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression )
-      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
+      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
+      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological, 'biological' )
       
       if( helper.dominates(objective_exp, objective_bio, solution) ) {
         archive <- rbind(archive, medoid_neighborhood[i, 1:num_clusters])
@@ -297,8 +256,8 @@ local.seach.mosa <- function(population_size, population, num_clusters, gene_lis
     row_name_id <- row_name_id + population_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
-      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression )
-      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological )
+      objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
+      objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological, 'biological' )
       
       # If it passes the acceptance criteria or if it 
       if( acceptance_criteria_fn(objective_exp, objective_bio, solution) ||
@@ -350,8 +309,8 @@ local.search.ensemble <- function(population_size, population, num_clusters, gen
       row_name_id <- row_name_id + (2**num_clusters) + 1
       
       for (i in 1:nrow(medoid_combinations)) {
-        objective_exp <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_expression )
-        objective_bio <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_biological )
+        objective_exp <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_expression, 'expression' )
+        objective_bio <- fitness_fn( medoid_combinations[i, 1:num_clusters], dmatrix_biological, 'biological' )
         
         if( helper.non.dominated(objective_exp, objective_bio, archive[first_idx, ]) ||
             helper.non.dominated(objective_exp, objective_bio, archive[second_idx, ]) ) {

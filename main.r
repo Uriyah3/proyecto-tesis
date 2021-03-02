@@ -16,6 +16,11 @@ if (!requireNamespace("BiocManager", quietly = TRUE))
 #X install.packages("neo4jshell")
 #BiocManager::install("qusage")
 #install.packages('hash')
+#install.packages('nsga2R')
+#install.packages('amap')
+#install.packages('profvis') didn't work
+#install.packages('lobstr')
+
 
 source("nsga2.r")
 source("matrices_evaluation.r")
@@ -28,40 +33,125 @@ test_file <- paste("data/training/samples/", test_file_name, sep="")
 data <- read.dataset(test_file)
 
 datasets <- list(
-  Leukemia = list(
-    name = "Leukemia_GSE28497",
-    chip = "GPL96",
-    type = "training"
-  ),
-  Liver = list(
-    name = "Liver_GSE14520_U133A",
-    chip = "GPL3921",
-    type = "training"
-  ),
-  Renal = list(
+  GSE53757 = list(
     name = "Renal_GSE53757",
     chip = "GPL570",
-    type = "training"
+    type = "evaluation",
+    cancer = "Renal"
   ),
-  Breast = list(
+  GSE41657 = list(
+    name = "Colorectal_GSE41657",
+    chip = "GPL6480",
+    type = "evaluation",
+    cancer = "Colorectal"
+  ),
+  GSE70947 = list(
     name = "Breast_GSE70947",
     chip = "GPL13607",
-    type = "evaluation"
+    type = "evaluation",
+    cancer = "Breast"
   ),
-  Colorectal = list(
-    name = "Colorectal_GSE44076",
-    chip = "GPL13667",
-    type = "evaluation"
+  GSE28497 = list(
+    name = "Leukemia_GSE28497",
+    chip = "GPL96",
+    type = "evaluation",
+    cancer = "Leukemia"
   ),
-  Lung = list(
-    name = "Lung_GSE19804",
+  GSE6919_U95C = list(
+    name = "Prostate_GSE6919_U95C",
+    chip = "GPL8300",
+    type = "evaluation",
+    cancer = "Prostate"
+  ),
+  GSE6919_U95B = list(
+    name = "Prostate_GSE6919_U95B",
+    chip = "GPL8300",
+    type = "training",
+    cancer = "Prostate"
+  ),
+  GSE6919_U95Av2 = list(
+    name = "Prostate_GSE6919_U95Av2",
+    chip = "GPL8300",
+    type = "training",
+    cancer = "Prostate"
+  ),
+  GSE22405 = list(
+    name = "Liver_GSE22405",
+    chip = "GPL10553",
+    type = "training",
+    cancer = "Liver"
+  ),
+  GSE31189 = list(
+    name = "Bladder_GSE31189",
     chip = "GPL570",
-    type = "evaluation"
+    type = "training",
+    cancer = "Bladder"
   ),
-  Prostate = list(
-    name = "Prostate_GSE46602",
+  GSE63459 = list(
+    name = "Lung_GSE63459",
+    chip = "GPL6883",
+    type = "training",
+    cancer = "Lung"
+  ),
+  GSE71449 = list(
+    name = "Leukemia_GSE71449",
+    chip = "GPL19197",
+    type = "training",
+    cancer = "Leukemia"
+  ),
+  GSE6008 = list(
+    name = "Ovary_GSE6008",
+    chip = "GPL96",
+    type = "training",
+    cancer = "Ovary"
+  ),
+  GSE50161 = list(
+    name = "Brain_GSE50161",
     chip = "GPL570",
-    type = "evaluation"
+    type = "training",
+    cancer = "Brain"
+  ),
+  GSE44861 = list(
+    name = "Colorectal_GSE44861",
+    chip = "GPL3921",
+    type = "training",
+    cancer = "Colorectal"
+  ),
+  GSE77953 = list(
+    name = "Colorectal_GSE77953",
+    chip = "GPL96",
+    type = "training",
+    cancer = "Colorectal"
+  ),
+  GSE10797 = list(
+    name = "Breast_GSE10797",
+    chip = "GPL571",
+    type = "training",
+    cancer = "Breast"
+  ),
+  GSE26304 = list(
+    name = "Breast_GSE26304",
+    chip = "GPL6848",
+    type = "training",
+    cancer = "Breast"
+  ),
+  GSE45827 = list(
+    name = "Breast_GSE45827",
+    chip = "GPL570",
+    type = "training",
+    cancer = "Breast"
+  ),
+  GSE7904 = list(
+    name = "Breast_GSE7904",
+    chip = "GPL570",
+    type = "training",
+    cancer = "Breast"
+  ),
+  GSE59246 = list(
+    name = "Breast_GSE59246",
+    chip = "GPL13607",
+    type = "training",
+    cancer = "Breast"
   )
 )
 
@@ -72,5 +162,9 @@ gene_list <- colnames(data)
 dmatrix_expression = expression.matrix(t(data), dataset=test_file_name)
 dmatrix_biological = biological.matrix(gene_list, biological_databases$go, dataset=test_file_name)
 
-set.seed(1048)
-results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 40, generations = 10, neighborhood = 1.01, num_clusters = 5, ls_pos=2, local_search = local_search_algorithms$pls)
+#set.seed(1048)
+#Rprof("profile1.out", line.profiling=TRUE, memory.profiling=TRUE)
+results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 10, num_clusters = 5, ls_pos=2, local_search = local_search_algorithms$pls)
+#Rprof(NULL)
+
+#summaryRprof("profile1.out", lines = "show")

@@ -36,7 +36,7 @@ clean.and.translate.entrez.id <- function(data, chip) {
   # Translate to ENTREZ_GENE_ID
   data <- data[, colnames(data) %in% rownames(genes_to_keep), drop=FALSE]
   colnames(data) <- sapply(colnames(data), function(gene_name) {
-    unlist(strsplit(gene_translator[gene_name, ], " /// "))[1]
+    unlist(strsplit(as.character(gene_translator[gene_name, ]), " /// "))[1]
   })
   # remove duplicates
   data <- data[, !duplicated(colnames(data))]

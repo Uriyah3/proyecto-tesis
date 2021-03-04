@@ -3,8 +3,7 @@ local_search_algorithms <- list(
   pls = "pareto local search",
   nmols = "narrow multiobjective local search", 
   lmols = "large multiobjective local search", 
-  mosa = "multiobjective simulated annealing", 
-  pr = "path relinking", 
+  mosa = "multiobjective simulated annealing",
   ensemble = "clustering ensemble"
 )
 

@@ -22,15 +22,17 @@ evaluator.multiobjective.clustering <- function( results, dmatrix ) {
   
   pareto_points <- as.matrix( results$population[ , (num_clusters+1):(num_clusters+2) ] )
   hypervolume <- dominatedHypervolume(pareto_points)
+  centered_hypervolume <- dominatedHypervolume(pareto_points, c(1, 1))
   
   pareto_points[, 1] <- helper.normalize(pareto_points[, 1])
   pareto_points[, 2] <- helper.normalize(pareto_points[, 2])
   n_hypervolume <- dominatedHypervolume(pareto_points, c(1, 1))
   
   metrics <- list(
-    silhoutte = silhouette_indices,
+    silhouette = silhouette_indices,
     hypervolume = hypervolume,
-    normalized_hypervolume = n_hypervolume
+    normalized_hypervolume = n_hypervolume,
+    centered_hypervolume = centered_hypervolume
   )
   return( metrics )
 }

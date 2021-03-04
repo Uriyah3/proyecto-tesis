@@ -1,6 +1,6 @@
-library("amap")
-library("mco")
-library("cluster")
+library(amap)
+library(mco)
+library(cluster)
 source("nsga2.r")
 
 helper.normalize <- function(data) {

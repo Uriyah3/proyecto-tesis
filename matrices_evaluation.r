@@ -1,10 +1,11 @@
 source("data_sampling.r")
 source("gpl_chip_to_entrez_id.r")
 source("globals.r")
-library("amap")
+library(amap)
 library(org.Hs.eg.db)
 library(KEGGREST)
 library(STRINGdb)
+library(qusage)
 library(BioCor)
 library(reshape2)
 

@@ -1,27 +1,4 @@
-if (!requireNamespace("BiocManager", quietly = TRUE))
-  install.packages("BiocManager")
-
-#BiocManager::install("GOSemSim")
-#BiocManager::install("DOSE")
-#X BiocManager::install("biomaRt")
-#X BiocManager::install("pathifier")
-#BiocManager::install("meshes")
-#BiocManager::install("MeSH.Hsa.eg.db")
-#BiocManager::install("org.Hs.eg.db")
-#BiocManager::install("KEGGREST")
-#X BiocManager::install("KEGG.db")
-#BiocManager::install("BioCor")
-#BiocManager::install("STRINGdb")
-#X library(pathifier)
-#X install.packages("neo4jshell")
-#BiocManager::install("qusage")
-#install.packages('hash')
-#install.packages('nsga2R')
-#install.packages('amap')
-#install.packages('profvis') didn't work
-#install.packages('lobstr')
-
-
+source("package_installer.r")
 source("nsga2.r")
 source("matrices_evaluation.r")
 source("globals.r")

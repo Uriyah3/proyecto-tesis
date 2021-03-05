@@ -16,7 +16,7 @@
 #' @return A matrix with neighboring solutions.
 #' 
 helper.generate.neighborhood <- function(population_size, num_clusters, solution, neighborhood_matrix, row_name_id) {
-  medoid_neighborhood <- as.data.frame( matrix(0, population_size, (num_clusters)) )
+  medoid_neighborhood <- as.data.frame( matrix(0, population_size, (num_clusters)), stringsAsFactors = FALSE )
   
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {length(neighborhood_matrix[[gene]]) > 0}) ) ]
@@ -80,7 +80,7 @@ helper.generate.neighborhood <- function(population_size, num_clusters, solution
 #' 
 helper.generate.ensemble <- function(first_solution, second_solution, row_name_id) {
   num_clusters <- ncol(first_solution)
-  medoid_ensemble <- as.data.frame( matrix(0, (2**num_clusters) - 2, num_clusters) )
+  medoid_ensemble <- as.data.frame( matrix(0, (2**num_clusters) - 2, num_clusters), stringsAsFactors = FALSE )
   
   for(row in 1:( nrow(medoid_ensemble) ) ) {
     for(col in 1:num_clusters) {
@@ -140,7 +140,7 @@ helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_
   archive <- archive[archive$solutions_rank <= rank_cutoff, ]
   
   new_solutions <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
-  new_solutions <- as.data.frame(rep( FALSE,length(new_solutions) ))
+  new_solutions <- as.data.frame(rep( FALSE,length(new_solutions) ), stringsAsFactors = FALSE)
   rownames(new_solutions) <- rownames( archive[!( rownames(archive) %in% rownames(explored) ), ] )
   colnames(new_solutions) <- "explored"
   

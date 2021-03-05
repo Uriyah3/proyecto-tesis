@@ -57,7 +57,7 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
   while(sum(duplicated(medoid_solution)) > 0) {
     medoid_solution[duplicated(medoid_solution)] <- sample(gene_list, sum(duplicated(medoid_solution)), replace=F)
   }
-  return(as.data.frame(medoid_solution))
+  return(as.data.frame(medoid_solution, stringsAsFactors = FALSE))
 }
 
 # fitness.medoid <- function(cluster_solution, gene_dmatrix) {
@@ -129,7 +129,7 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   
   # Sacar el Jk de cada cluster
   clustering <- apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)])
-  Jk <- t( as.data.frame(rbind(Rm, clustering)) )
+  Jk <- as.data.frame(cbind(Rm, clustering), stringsAsFactors = FALSE)
   Jk <- transform(Jk, Rm = as.numeric(Rm))
   elements_k <- aggregate(Rm ~ clustering, Jk, length)
   Jk <- aggregate(Rm ~ clustering, Jk, mean)
@@ -212,7 +212,7 @@ operator.local.search <- function(should_apply, population_size, population, num
 }
 
 operator.crossover.random <- function(gene_list, population_size, num_clusters, mating_pool, crossover_ratio) {
-  population_children <- as.data.frame( matrix(0, population_size * 2, num_clusters) )
+  population_children <- as.data.frame( matrix(0, population_size * 2, num_clusters), stringsAsFactors = FALSE )
   
   for( i in 1:population_size ) {
     pairs <- sample( 1:population_size, 2, replace=FALSE )

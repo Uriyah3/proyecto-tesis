@@ -65,7 +65,7 @@ expression.matrix <- function(gene_profiles, metric = 'pearson', nbproc = 2, dat
     }
   }
   
-  data <- as.data.frame( as.matrix(amap::Dist(gene_profiles, method = metric, nbproc = nbproc)) )
+  data <- as.data.frame( as.matrix(amap::Dist(gene_profiles, method = metric, nbproc = nbproc)), stringsAsFactors = FALSE )
   if( dataset != '' ) {
     saveRDS(data, file = cached_filename)
   }
@@ -131,7 +131,7 @@ biological.matrix <- function(gene_list, database, dataset = '') {
 biological.matrix.fill.missing <- function(gene_list, bmatrix) {
   fill_value <- min(max(bmatrix[!is.na(bmatrix)]) * 1.01, 1.00)
   
-  bmatrix <- as.data.frame(bmatrix)
+  bmatrix <- as.data.frame(bmatrix, stringsAsFactors = FALSE)
   bmatrix[gene_list[!(gene_list %in% rownames(bmatrix))], ] <- NA
   bmatrix[ , gene_list[!(gene_list %in% colnames(bmatrix))]] <- NA
   bmatrix[is.na(bmatrix)] <- fill_value

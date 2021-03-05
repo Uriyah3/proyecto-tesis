@@ -40,7 +40,7 @@ helper.randomize.duplicates <- function(population, gene_list, num_clusters) {
 }
 
 generate.initial.population <- function(genes, population_size, num_clusters) {
-  as.data.frame( t(sapply( 1:population_size, function(x) sample( genes, num_clusters, replace=F ) )) )
+  as.data.frame( t(sapply( 1:population_size, function(x) as.character(sample( genes, num_clusters, replace=F )) )), stringsAsFactors = FALSE )
 }
 
 objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {

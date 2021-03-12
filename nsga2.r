@@ -5,14 +5,32 @@ library(ggplot2)
 source("local_search.r")
 source("globals.r")
 
+# Create counters to test algorithm's performance
 fitness_counter = 0
+mutation_counter = 0
+not_mutated_counter = 0
+reset_crossover_counter = 0
+crossover_counter = 0
+
+# Hash used to avoid calculating a function's objective value more than once.
 fitness_hash <- hash()
 
+#' Orders a matrix's rownames and colnames assuming they can be transformed using
+#' as.numeric() from lower to greater.
+#' 
+#' @param matrix Matrix to be ordered.
+#' @return ordered matrix (rownames and colnames ordered).
+#' 
 helper.order.matrix <- function(matrix) {
   matrix[ order( as.numeric(rownames(matrix)) ), order( as.numeric(colnames(matrix)) ) ]
 }
 
-# The following code is part of the example of ?nsga2R::crowdingDist4frnt
+#' Generate a pareto ranking using the results of nsga2R::fastNonDominatedSorting.
+#' 
+#' @param popSize Integer value. Size of the solution population.
+#' @param ranking Results of nsga2R::fastNonDominatedSorting. 
+#' @return Vector of ranking of each solution.
+#' @note The following code is part of the example in ?nsga2R::crowdingDist4frnt
 helper.pareto.ranking <- function(popSize, ranking) {
   rnkIndex <- integer(popSize)
   i <- 1
@@ -55,6 +73,7 @@ objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {
 medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) {
   medoid_solution <- as.list(medoid_solution)
   while(sum(duplicated(medoid_solution)) > 0) {
+    reset_crossover_counter <<- reset_crossover_counter + 1
     medoid_solution[duplicated(medoid_solution)] <- sample(gene_list, sum(duplicated(medoid_solution)), replace=F)
   }
   return(as.data.frame(medoid_solution, stringsAsFactors = FALSE))
@@ -216,6 +235,7 @@ operator.crossover.random <- function(gene_list, population_size, num_clusters, 
   
   for( i in 1:population_size ) {
     pairs <- sample( 1:population_size, 2, replace=FALSE )
+    crossover_counter <<- crossover_counter + 1
     
     for( medoid in 1:num_clusters ) {
       should_cross <- ( stats::runif(1, 0, 1) <= crossover_ratio )
@@ -233,10 +253,15 @@ operator.crossover.random <- function(gene_list, population_size, num_clusters, 
   # Randomize any duplicated medoids in solutions
   for( i in 1:nrow(population_children) ) {
     population_children[i, 1:num_clusters] <- medoid.fix.representation(gene_list, population_children[i, 1:num_clusters], num_clusters)
-  } # Generar función para saber que tan similares son dos individuos d(s1, s2) = k - #elementos iguales
+  } 
   
   return( population_children )
 }
+
+#' 
+#' 
+#' 
+#' 
 # Contabilizar mutación
 operator.mutation.random <- function(gene_list, num_clusters, population_children, mutation_ratio) {
   for( i in nrow(population_children) ) {
@@ -252,16 +277,52 @@ operator.mutation.random <- function(gene_list, num_clusters, population_childre
         }
       }
       population_children[i, mutate_index] <- mutated_medoid
+      
+      mutation_counter <<- mutation_counter + 1
+    } else {
+      not_mutated_counter <<- not_mutated_counter + 1
     }
   }
   
   return( population_children )
 }
 
+operator.diversify.population <- function(gene_list, num_clusters, population) {
+  
+  # Generar función para saber que tan similares son dos individuos d(s1, s2) = k - #elementos iguales
+  similitud = integer( nrow(population) * ( nrow(population) - 1 ) / 2 )
+  i <- 1
+  
+  for(first_idx in 1:nrow(population)) {
+    for(second_idx in (first_idx + 1):nrow(population)) {
+      if( second_idx > nrow(population) || second_idx == first_idx) next
+      
+      first_solution <- population[first_idx, 1:num_clusters, drop=FALSE]
+      second_solution <- population[second_idx, 1:num_clusters, drop=FALSE]
+      
+      similitud[[i]] <- 1 - (num_clusters - length(intersect(first_solution, second_solution))) / num_clusters
+      i <- i + 1
+    }
+  }
+  factor_similitud <- mean(similitud)
+  print(factor_similitud)
+  # Hacer algo si la similitud es muy alta
+  
+  return( population )
+}
+
+#' 
+#' 
+#' 
+#' 
 operator.selection <- function(population, pool_size, tour_size) {
   return( nsga2R::tournamentSelection(population, pool_size, tour_size) )
 }
 
+#' 
+#' 
+#' 
+#' 
 operator.join.populations <- function(parent_pop, child_pop, num_clusters, gene_list) {
   parent_pop <- parent_pop[, 1:num_clusters]
   child_pop <- child_pop[, 1:num_clusters]
@@ -271,11 +332,17 @@ operator.join.populations <- function(parent_pop, child_pop, num_clusters, gene_
   return( mixed_pop )
 }
 
+#' 
+#' 
+#' 
+#' 
 generate.results <- function(population_size, num_clusters, population, dmatrix_expression, dmatrix_biological) {
   
+  # Select pareto front
   population <- population[ 1:population_size, ]
   population <- population[ population$solutions_rank == 1, ]
-  
+
+  # Mark to which cluster does each gene belong to in each solution
   frontier_clustering <- list(1:nrow(population))
   
   elements <- nrow( dmatrix_expression )
@@ -301,13 +368,13 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
   )
 }
 
-# Possible implementation.
-# graph / parent child population
-# use two parameters: number of childs per node, number of levels
-# Crossover would happen between same population and between other populations
-# Parent comunicates with child, parents comunicate between the same level
-#
-# Currently using normal population.
+#' 
+#' 
+#' 
+#' 
+#' 
+#' 
+#' 
 nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, generations=50, population_size=20, crossover_ratio=0.60, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_params=NULL, debug=FALSE, print_iteration=FALSE) {
   
   # Sanity checks
@@ -330,6 +397,12 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   
   gene_list <- colnames(dmatrix_expression)
   
+  # Debug counters
+  mutation_counter <<- 0
+  not_mutated_counter <<- 0
+  reset_crossover_counter <<- 0
+  crossover_counter <<- 0
+  
   # Contador de fitness y hash de fitness
   fitness_counter <<- 0
   clear(fitness_hash)
@@ -339,6 +412,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   if( !is.null(local_search) ) {
     # Sum distance matrix
     #dmatrix_combined <- dmatrix_expression + dmatrix_biological
+    # Euclidean distance matrix
     dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
     # Find genes that are close to one another
     neighborhood_matrix <- sapply(gene_list, function(gene) {
@@ -347,6 +421,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     })
   }
   
+  # Start NSGA-II loop
   population_parents <- generate.initial.population(gene_list, population_size, num_clusters)
   population_parents <- operator.nsga2.sorting.and.crowding(population_parents, dmatrix_expression, dmatrix_biological)
   
@@ -362,6 +437,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     
     population_children <- operator.crossover.random(gene_list, population_size, num_clusters, mating_pool, crossover_ratio)
     population_children <- operator.mutation.random(gene_list, num_clusters, population_children, mutation_ratio)
+    population_children <- operator.diversify.population(gene_list, num_clusters, population_children)
     
     population_mix <- operator.join.populations(population_parents, population_children, num_clusters, gene_list)
     population_mix <- operator.nsga2.sorting.and.crowding(population_mix, dmatrix_expression, dmatrix_biological)
@@ -371,6 +447,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     
     g = g + 1
     
+    # Print graph and/or debugging values, i.e. results of each iteration
     if (debug || print_iteration) {
       results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
       metrics <- evaluator.multiobjective.clustering( results, dmatrix_expression )
@@ -391,6 +468,8 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
       }
     }
   }
+  
+  # Prepare final results
   population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params)
   
   results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)

@@ -6,7 +6,7 @@
 #' gene from the \code{neighborhood_matrix}. A gene is only replaced if the
 #' replacement isn't currently in the solution.
 #' 
-#' @param population_size The amount of neighboring solutions to generate
+#' @param exploration_size The amount of neighboring solutions to generate
 #' @param num_clusters The number of clusters in a solution
 #' @param solution A matrix with one solution.
 #' @param neighborhood_matrix An adjacency matrix with all neighboring genes.
@@ -15,8 +15,8 @@
 #' updated after running this method.
 #' @return A matrix with neighboring solutions.
 #' 
-helper.generate.neighborhood <- function(population_size, num_clusters, solution, neighborhood_matrix, row_name_id) {
-  medoid_neighborhood <- as.data.frame( matrix(0, population_size, (num_clusters)), stringsAsFactors = FALSE )
+helper.generate.neighborhood <- function(exploration_size, num_clusters, solution, neighborhood_matrix, row_name_id) {
+  medoid_neighborhood <- as.data.frame( matrix(0, exploration_size, (num_clusters)), stringsAsFactors = FALSE )
   
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {length(neighborhood_matrix[[gene]]) > 0}) ) ]
@@ -117,7 +117,7 @@ helper.generate.ensemble <- function(first_solution, second_solution, row_name_i
 helper.mosa.probability <- function(objective_exp, objective_bio, solution, temperature)
 {
   Energy <- sqrt((solution$objective_exp - objective_exp)**2 + (solution$objective_bio - objective_bio)**2)
-  probability <- exp(-(Energy/temperature))
+  probability <- exp(-(Energy/temperature)) # Probablidad boltzman
 }
 
 #' Modifies the archive adding the new found solutions and reorders the rank of the
@@ -181,12 +181,29 @@ helper.dominates <- function(objective_exp, objective_bio, solution) {
 
 #' Pareto Local Search
 #' 
+#' @param exploration_size Integer value. How many solutions should be explored each
+#' iteration. Usually, the population_size of NSGA-II is used.
+#' @param population Matrix / data.frame. Each row represents a solution.
+#' @param num_clusters Integer value. How many medoids each solution has.
+#' @param gene_list Vector. All the genes that can be used in the population. These
+#' names should match the rows and cols of dmatrix_expression and dmatrix_biological. 
+#' @param dmatrix_expression Gene expression distance matrix between each pair of genes.
+#' @param dmatrix_biological Biological distance matrix between each pair of genes.
+#' @param neighborhood_matrix Distance matrix. How close each pair of genes is based on
+#' its expression and biological distance.
+#' @param ordering_fn Function used to sort the population. 
+#' Usually uses operator.nsga2.sorting.and.crowding .
+#' @param fitness_fn Function used to calculate objectives. Usually uses fitness.medoid.wg
+#' @param acceptance_criteria_fn Function used to accept a new solution into the
+#' population archive. 3 parameters, new_objective_exp, new_objective_bio and old_solution
+#' @param rank_cutoff Integer value. Solutions below this rank are removed from the archive.
+#' @param max_generations Integer value. Maximum number of iterations.
 #' 
+#' @return matrix of new pareto front found by PLS.
 #' 
-#' 
-#' 
-local.search.pareto.local.search <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 2, max_generations = 100) {
+local.search.pareto.local.search <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 2, max_generations = 100) {
   
+  # Create the archive of solutions
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
   archive <- archive[archive$solutions_rank <= rank_cutoff, ]
@@ -194,16 +211,19 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
   g <- 1
   row_name_id <- 0
   
+  # Loop until max_generations or until there are no unexplored solutions
   while( sum(archive[, ncol(archive)]) < nrow(archive) && g <= max_generations ) {
+    # Choose an unexplored solution
     print(paste(g, "-", fitness_counter))
     unexplored <- archive[archive$explored == FALSE, , drop=FALSE]
     row_index <- rownames( unexplored[ sample(nrow(unexplored), 1), ] )[1]
     solution <- unexplored[row_index, , drop=FALSE]
     
     # Generate neighborhood
-    medoid_neighborhood <- helper.generate.neighborhood(round(population_size/2), num_clusters, solution, neighborhood_matrix, row_name_id)
-    row_name_id <- row_name_id + population_size + 1
+    medoid_neighborhood <- helper.generate.neighborhood(round(exploration_size/2), num_clusters, solution, neighborhood_matrix, row_name_id)
+    row_name_id <- row_name_id + exploration_size + 1
     
+    # Check if any neighboring solutions pass the acceptance criteria
     for(i in 1:nrow(medoid_neighborhood)) {
       objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
       objective_bio <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_biological, 'biological' )
@@ -223,12 +243,14 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
       )
     }
     
-    
+    # Mark solution as explored if it still is in the archive
     if( row_index %in% rownames(archive) ) {
       archive[row_index, ncol(archive)] = TRUE
     }
     g <- g + 1
   }
+  
+  # Clean the results and return them
   archive <- helper.randomize.duplicates( archive, gene_list, num_clusters )
   archive <- ordering_fn(archive[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   
@@ -238,18 +260,35 @@ local.search.pareto.local.search <- function(population_size, population, num_cl
 
 #' Large Multiobjective local search
 #' 
-local.search.large.mols <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
+#' @param exploration_size Integer value. How many solutions should be explored each
+#' iteration. Usually, the population_size of NSGA-II is used.
+#' @param population Matrix / data.frame. Each row represents a solution.
+#' @param num_clusters Integer value. How many medoids each solution has.
+#' @param gene_list Vector. All the genes that can be used in the population. These
+#' names should match the rows and cols of dmatrix_expression and dmatrix_biological. 
+#' @param dmatrix_expression Gene expression distance matrix between each pair of genes.
+#' @param dmatrix_biological Biological distance matrix between each pair of genes.
+#' @param neighborhood_matrix Distance matrix. How close each pair of genes is based on
+#' its expression and biological distance.
+#' @param ordering_fn Function used to sort the population. 
+#' Usually uses operator.nsga2.sorting.and.crowding .
+#' @param fitness_fn Function used to calculate objectives. Usually uses fitness.medoid.wg
+#' 
+#' @return Matrix of neighboring solutions that pass the non-dominance criteria.
+#' 
+local.search.large.mols <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
   
   population <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- population[1, 1:num_clusters, drop=FALSE]
   
   row_name_id <- 0
   
+  # Explore the neighbors of every solution in the population
   for(row_index in 1:nrow(population)) {
     
     solution <- population[row_index, , drop=FALSE]
-    medoid_neighborhood <- helper.generate.neighborhood(population_size, num_clusters, solution, neighborhood_matrix, row_name_id)
-    row_name_id <- row_name_id + population_size + 1
+    medoid_neighborhood <- helper.generate.neighborhood(exploration_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    row_name_id <- row_name_id + exploration_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
       objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
@@ -266,18 +305,35 @@ local.search.large.mols <- function(population_size, population, num_clusters, g
 
 #' Narrow Multiobjective local search
 #' 
-local.search.narrow.mols <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
+#' @param exploration_size Integer value. How many solutions should be explored each
+#' iteration. Usually, the population_size of NSGA-II is used.
+#' @param population Matrix / data.frame. Each row represents a solution.
+#' @param num_clusters Integer value. How many medoids each solution has.
+#' @param gene_list Vector. All the genes that can be used in the population. These
+#' names should match the rows and cols of dmatrix_expression and dmatrix_biological. 
+#' @param dmatrix_expression Gene expression distance matrix between each pair of genes.
+#' @param dmatrix_biological Biological distance matrix between each pair of genes.
+#' @param neighborhood_matrix Distance matrix. How close each pair of genes is based on
+#' its expression and biological distance.
+#' @param ordering_fn Function used to sort the population. 
+#' Usually uses operator.nsga2.sorting.and.crowding .
+#' @param fitness_fn Function used to calculate objectives. Usually uses fitness.medoid.wg
+#' 
+#' @return Matrix of neighboring solutions that pass the dominance criteria.
+#' 
+local.search.narrow.mols <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn) {
   
   population <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- population[1, 1:num_clusters, drop=FALSE]
   
   row_name_id <- 0
   
+  # Explore the neighbors of every solution in the population
   for(row_index in 1:nrow(population)) {
     
     solution <- population[row_index, , drop=FALSE]
-    medoid_neighborhood <- helper.generate.neighborhood(population_size, num_clusters, solution, neighborhood_matrix, row_name_id)
-    row_name_id <- row_name_id + population_size + 1
+    medoid_neighborhood <- helper.generate.neighborhood(exploration_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    row_name_id <- row_name_id + exploration_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
       objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
@@ -294,7 +350,27 @@ local.search.narrow.mols <- function(population_size, population, num_clusters, 
 
 #' Multiobjective simulated annealing
 #' 
-local.search.mosa <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 5, alfa = 0.95, max_steps = 1000, inital_temperature = 100) {
+#' @param exploration_size Integer value. How many solutions should be explored each
+#' iteration. Usually, the population_size of NSGA-II is used.
+#' @param population Matrix / data.frame. Each row represents a solution.
+#' @param num_clusters Integer value. How many medoids each solution has.
+#' @param gene_list Vector. All the genes that can be used in the population. These
+#' names should match the rows and cols of dmatrix_expression and dmatrix_biological. 
+#' @param dmatrix_expression Gene expression distance matrix between each pair of genes.
+#' @param dmatrix_biological Biological distance matrix between each pair of genes.
+#' @param neighborhood_matrix Distance matrix. How close each pair of genes is based on
+#' its expression and biological distance.
+#' @param ordering_fn Function used to sort the population. 
+#' Usually uses operator.nsga2.sorting.and.crowding .
+#' @param fitness_fn Function used to calculate objectives. Usually uses fitness.medoid.wg
+#' @param rank_cutoff Integer value. Solutions below this rank are removed from the archive.
+#' @param alfa Float value. Factor used for geomtric cooling.
+#' @param max_steps Integer value. How many steps does the cooling goes on for. Iterations.
+#' @param intial_temperature Float value. Intial temperature used in the geometric cooling.
+#' 
+#' @return Matrix of neighboring solutions that pass the non-dominance criteria.
+#' 
+local.search.mosa <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 5, alfa = 0.95, max_steps = 1000, inital_temperature = 100) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
@@ -311,8 +387,8 @@ local.search.mosa <- function(population_size, population, num_clusters, gene_li
     solution <- archive[row_index, , drop=FALSE]
     
     # Generate neighborhood
-    medoid_neighborhood <- helper.generate.neighborhood(round(population_size/10), num_clusters, solution, neighborhood_matrix, row_name_id)
-    row_name_id <- row_name_id + population_size + 1
+    medoid_neighborhood <- helper.generate.neighborhood(round(exploration_size/10), num_clusters, solution, neighborhood_matrix, row_name_id)
+    row_name_id <- row_name_id + exploration_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
       objective_exp <- fitness_fn( medoid_neighborhood[i, 1:num_clusters], dmatrix_expression, 'expression' )
@@ -345,7 +421,24 @@ local.search.mosa <- function(population_size, population, num_clusters, gene_li
 
 #' Multiobjective clustering ensemble local search
 #' 
-local.search.ensemble <- function(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, ordering_fn, fitness_fn, rank_cutoff = 1) {
+#' @param exploration_size Integer value. How many solutions should be explored each
+#' iteration. Usually, the population_size of NSGA-II is used.
+#' @param population Matrix / data.frame. Each row represents a solution.
+#' @param num_clusters Integer value. How many medoids each solution has.
+#' @param gene_list Vector. All the genes that can be used in the population. These
+#' names should match the rows and cols of dmatrix_expression and dmatrix_biological. 
+#' @param dmatrix_expression Gene expression distance matrix between each pair of genes.
+#' @param dmatrix_biological Biological distance matrix between each pair of genes.
+#' @param neighborhood_matrix Distance matrix. How close each pair of genes is based on
+#' its expression and biological distance.
+#' @param ordering_fn Function used to sort the population. 
+#' Usually uses operator.nsga2.sorting.and.crowding .
+#' @param fitness_fn Function used to calculate objectives. Usually uses fitness.medoid.wg
+#' @param rank_cutoff Integer value. Solutions below this rank are removed from the archive.
+#' 
+#' @return Matrix of solutions created by combining the top solutions in the population.
+#' 
+local.search.ensemble <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, ordering_fn, fitness_fn, rank_cutoff = 1) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- archive[archive$solutions_rank <= rank_cutoff, ]
@@ -356,6 +449,7 @@ local.search.ensemble <- function(population_size, population, num_clusters, gen
   step <- 0
   row_name_id <- 0
   
+  # Combine each pair of solutions in the top rank_cutoff ranks.
   for(first_idx in 1:nrow(archive)) {
     for(second_idx in (first_idx + 1):nrow(archive)) {
       #print(paste("[", first_idx, ", ", second_idx, "]", sep=""))

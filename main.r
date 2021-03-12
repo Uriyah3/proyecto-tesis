@@ -141,7 +141,7 @@ dmatrix_biological = biological.matrix(gene_list, biological_databases$go, datas
 
 #set.seed(1048)
 #Rprof("profile1.out", line.profiling=TRUE, memory.profiling=TRUE)
-results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 10, num_clusters = 5, ls_pos=NULL, local_search = NULL)
+results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 40, num_clusters = 5, ls_pos=NULL, local_search = NULL)
 #Rprof(NULL)
 
 #summaryRprof("profile1.out", lines = "show")

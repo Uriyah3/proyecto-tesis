@@ -7,7 +7,7 @@ crossover_ratio           "--crossover "        r   (0.01, 0.99)
 mutation_ratio            "--mutation "         r   (0.01, 0.99)
 tour_size                 "--tour_size "        i   (2, 10)
 neighborhood              "--neighborhood "     r   (0.10, 1.414)
-local_search              "--local_search "     c   (NULL, pls, lmols, nmols, mosa, ensemble)
+local_search              "--local_search "     c   (NULL, pls, lmols, nmols, mosa, ce)
 ls_pos                    "--ls_pos"            c   (1, 2, 3)     | !is_null(local_search)
 acceptance_criteria_fn    "--acc_fn"            c   (helper.dominates, helper.non.dominated) | local_search %in% c("pls", "mosa")
 pls_rank_cutoff           "--pls_rank_cutoff"   i   (1, 3)              | local_search == "pls"

@@ -154,7 +154,8 @@ helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_
   return( archive )
 }
 
-#' Non-dominance acceptance function.
+#' Non-dominance acceptance function. The new solution is better than the other solution
+#' in at least one objective.
 #' 
 #' @param objective_exp Float value. Expression based objective of solution being evaluated.
 #' @param objective_bio Float value. Biologic based objective of solution being evaluated.
@@ -166,7 +167,8 @@ helper.non.dominated <- function(objective_exp, objective_bio, solution) {
   return( objective_bio < solution$objective_bio || objective_exp < solution$objective_exp )
 }
 
-#' Dominance acceptance function.
+#' Dominance acceptance function. The new solution is better than the other solution in both 
+#' objectives or, at worst, is equal in just one objective.
 #' 
 #' @param objective_exp Float value. Expression based objective of solution being evaluated.
 #' @param objective_bio Float value. Biologic based objective of solution being evaluated.

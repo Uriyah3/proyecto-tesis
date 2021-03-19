@@ -1,19 +1,20 @@
 library(nsga2R)
 library(hash)
 library(ggplot2)
+library(stringr)
 
 source("local_search.r")
 source("globals.r")
 
 # Create counters to test algorithm's performance
-fitness_counter = 0
-mutation_counter = 0
-not_mutated_counter = 0
-reset_crossover_counter = 0
-crossover_counter = 0
+fitness_counter <<- 0
+mutation_counter <<- 0
+not_mutated_counter <<- 0
+reset_crossover_counter <<- 0
+crossover_counter <<- 0
 
 # Hash used to avoid calculating a function's objective value more than once.
-fitness_hash <- hash()
+fitness_hash <<- hash()
 
 #' Orders a matrix's rownames and colnames assuming they can be transformed using
 #' as.numeric() from lower to greater.
@@ -72,7 +73,7 @@ objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {
 
 medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) {
   medoid_solution <- as.list(medoid_solution)
-  while(sum(duplicated(medoid_solution)) > 0) {
+  while(sum(duplicated(medoid_solution)) > 0 || length(medoid_solution[medoid_solution == 0]) > 0) {
     reset_crossover_counter <<- reset_crossover_counter + 1
     medoid_solution[duplicated(medoid_solution)] <- sample(gene_list, sum(duplicated(medoid_solution)), replace=F)
   }
@@ -187,33 +188,33 @@ operator.nsga2.sorting.and.crowding <- function(population, dmatrix_expression, 
   return( population )
 }
 
-operator.local.search <- function(should_apply, population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params = NULL) {
+operator.local.search <- function(should_apply, population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params = NULL, debug = FALSE) {
   if( should_apply == TRUE && !is.null(local_search) ) {
     population <- population[,1:num_clusters]
     
     if( local_search == local_search_algorithms$pls ) 
     {
       if( is.null(ls_params) ) {
-        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
+        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, debug = debug)
       } else {
-        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$max_generations)
+        new_population <- local.search.pareto.local.search(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, debug = debug)
       }
     } 
     else if( local_search == local_search_algorithms$nmols ) 
     {
-      new_population <- local.search.narrow.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
+      new_population <- local.search.narrow.mols(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, debug = debug)
     }
     else if( local_search == local_search_algorithms$lmols )
     {
-      new_population <- local.search.large.mols(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
+      new_population <- local.search.large.mols(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, debug = debug)
     }
     else if( local_search == local_search_algorithms$mosa )
     {
-      new_population <- local.search.mosa(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
+      new_population <- local.search.mosa(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$alfa, ls_params$initial_temperature, debug = debug)
     }
     else if( local_search == local_search_algorithms$ensemble )
     {
-      new_population <- local.search.ensemble(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, operator.nsga2.sorting.and.crowding, fitness.medoid.wg)
+      new_population <- local.search.ensemble(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$rank_cutoff, debug = debug)
     }
     else {
       stop("Wrong local search algorithm specified")
@@ -222,8 +223,8 @@ operator.local.search <- function(should_apply, population_size, population, num
     new_population <- new_population[, 1:num_clusters]
     rownames(new_population) <- 1:nrow(new_population)
     
-    population <- rbind(population, new_population)
-    population <- helper.randomize.duplicates(population, gene_list, num_clusters)
+    population <- unique(rbind(population, new_population))
+    #population <- helper.randomize.duplicates(population, gene_list, num_clusters)
     
     population <- operator.nsga2.sorting.and.crowding(population, dmatrix_expression, dmatrix_biological)
   }
@@ -231,6 +232,7 @@ operator.local.search <- function(should_apply, population_size, population, num
 }
 
 operator.crossover.random <- function(gene_list, population_size, num_clusters, mating_pool, crossover_ratio) {
+  population_size = round(population_size/2)
   population_children <- as.data.frame( matrix(0, population_size * 2, num_clusters), stringsAsFactors = FALSE )
   
   for( i in 1:population_size ) {
@@ -308,7 +310,7 @@ operator.diversify.population <- function(gene_list, num_clusters, population) {
   print(factor_similitud)
   # Hacer algo si la similitud es muy alta
   
-  return( population )
+  return( factor_similitud )
 }
 
 #' 
@@ -368,14 +370,25 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
   )
 }
 
+#' NSGA-II
 #' 
+#' @param dmatrix_expression Matrix or Data.frame. n^n matrix with gene expression distance.
+#' @param dmatrix_biological Matrix or Data.frame. n^n matrix with gene biological distance.
+#' This distance can be calculated using different biological sources.
+#' @param evaluations Integer. Budget for evaluating new solutions.
+#' @param population_size Intger. Number of solutions kept in the NSGA-II population.
+#' @param crossover_ratio Probability of using the crossover operator.
+#' @param crossover_prob Probability of taking solutions in rank 1 over solutions in the
+#' lowest rank. 0.5 means 50% less chance of taking solutions in rank 1. 2.0 means 2x the
+#' chance of taking solutions in rank 1 over rank max. Probability goes from this number
+#' to 1.0 linearly over each rank.
+#' @param mutation_ratio Probability of mutating solutions.
+#' @param tour_size Integer. Size of the selection tournament.
+#' @param neighborhodd Float. Max distance to consider two genes as neighbors. [0, 1.414]
+#' @return List. population and clustering. Approximation to the Pareto Front and cluster
+#' to which each gene belongs to in each solution in the Pareto Front respectively.
 #' 
-#' 
-#' 
-#' 
-#' 
-#' 
-nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, generations=50, population_size=20, crossover_ratio=0.60, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_params=NULL, debug=FALSE, print_iteration=FALSE) {
+nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, print_iteration=FALSE) {
   
   # Sanity checks
   if( nrow( dmatrix_expression ) != ncol( dmatrix_expression ) || nrow( dmatrix_biological ) != ncol( dmatrix_biological ) ) {
@@ -420,37 +433,77 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
       apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.00 & x < neighborhood)] )
     })
   }
+
+  # Divide budget size by 2 to take into account that each solution is evaluated twice
+  original_evaluations <- evaluations
+  evaluations <- round( ((evaluations - population_size * 2) * 1.04) / 2)
+  
+  # Setup global evaluations budget
+  if (is.null(local_search)) {
+    nsga_budget <- evaluations
+  } else {
+    nsga_budget <- evaluations * ( 1 - (ls_budget / 100.0))
+    ls_budget <- evaluations * (ls_budget / 100.0)
+  }
+  # Setup nsga budget
+  max_pool_size <- max(round(population_size / 2), 10)
+  min_pool_size <- 2
+  pool_size <- min(max(round(sqrt(nsga_budget)), min_pool_size), max_pool_size)
+  
+  generations <- round(nsga_budget / pool_size)
+  
+  # Setup local search budget
+  if( !is.null(local_search) ) {
+    if(ls_pos == 2) {
+      ls_params["exploration_size"] <- round(ls_budget / generations)
+    } else {
+      ls_params["exploration_size"] <- round(ls_budget)
+    }
+  }
+  
+  if (debug) {
+    print(str_interp("Running with a total budget = ${original_evaluations}"))
+    print(str_interp("Running NSGA-II with pool_size=${pool_size} for ${generations} generations with a budget of ${nsga_budget*2}"))
+    if ( !is.null(local_search) ) {
+      print(str_interp("Running local search with a budget of ${ls_budget*2} using ${ls_params['exploration_size']} each run"))
+    }
+  }
   
   # Start NSGA-II loop
   population_parents <- generate.initial.population(gene_list, population_size, num_clusters)
   population_parents <- operator.nsga2.sorting.and.crowding(population_parents, dmatrix_expression, dmatrix_biological)
   
-  population_parents <- operator.local.search(ls_pos == 1, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params)
+  population_parents <- operator.local.search(ls_pos == 1, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params, debug)
   g = 1
   
-  while( g <= generations ) {
+  similitudes <- list()
+  while( g <= generations) { # && fitness_counter < evaluations) {
     if (debug) {
       print(paste("running generation:", g))
     }
+    print(paste("start of generation:", fitness_counter))
     
-    mating_pool <- operator.selection(population_parents, population_size, tour_size)
+    mating_pool <- operator.selection(population_parents, pool_size, tour_size)
     
-    population_children <- operator.crossover.random(gene_list, population_size, num_clusters, mating_pool, crossover_ratio)
+    population_children <- operator.crossover.random(gene_list, pool_size, num_clusters, mating_pool, crossover_ratio)
     population_children <- operator.mutation.random(gene_list, num_clusters, population_children, mutation_ratio)
-    population_children <- operator.diversify.population(gene_list, num_clusters, population_children)
     
     population_mix <- operator.join.populations(population_parents, population_children, num_clusters, gene_list)
     population_mix <- operator.nsga2.sorting.and.crowding(population_mix, dmatrix_expression, dmatrix_biological)
     population_parents <- population_mix[ 1:population_size, ]
+    similitud <- operator.diversify.population(gene_list, num_clusters, population_children)
+    similitudes[[g]] <- similitud
     
-    population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params)
+    print(paste("Before local search:", fitness_counter))
+    population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params, debug)
     
+    print(paste("after local search:", fitness_counter))
     g = g + 1
     
     # Print graph and/or debugging values, i.e. results of each iteration
-    if (debug || print_iteration) {
+    if (debug && print_iteration) {
       results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
-      metrics <- evaluator.multiobjective.clustering( results, dmatrix_expression )
+      metrics <- evaluator.multiobjective.clustering.no.bio( results, dmatrix_expression )
       
       if (debug) {
         print(population_parents)
@@ -470,12 +523,31 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   }
   
   # Prepare final results
-  population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params)
+  population_parents <- operator.local.search(ls_pos == 3, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params, debug)
   
   results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
   
+  # Show similarity change from generation to generation
   if (debug) {
     print(paste("Se realizaron", fitness_counter, "calculos de la funcion de fitness"))
+    
+    data <- cbind(g = 1:length(similitudes), sim=unlist(similitudes))
+    ggplot(as.data.frame(data), aes(x = g, y=sim)) +
+      geom_line(color = 'cyan') +
+      geom_area(fill = 'cyan', alpha = .1) +
+      xlab('Generacion') +
+      ylab('Jaccard\npromedio') +
+      ggtitle('Similitud promedio entre todos las soluciones de la poblacion') + ylim(0, 1) +
+      theme(text = element_text(color = "#222222")
+            ,panel.background = element_rect(fill = '#444B5A')
+            ,panel.grid.minor = element_line(color = '#4d5566')
+            ,panel.grid.major = element_line(color = '#586174')
+            ,plot.title = element_text(size = 16)
+            ,axis.title = element_text(size = 12, color = '#333333')
+      )
+    
+    
+    ggsave(paste('jaccard_sim-', round(stats::runif(1, 1, 10000)), '.png', sep=''), device="png", path="plots")
   }
   
   return( results )

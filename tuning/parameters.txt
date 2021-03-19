@@ -1,19 +1,19 @@
 ### Parameter file for the ACOTSP software
 # name                      switch            type  values              [conditions (using R syntax)]
-generations               "--generations "      i   (20, 150)
+fitness_evaluations       "--evaluations "      i   (500, 25000)
 population                "--population "       i   (20, 200)
-num_clusters              "--num_clusters"      i   (5, 50)
-crossover_ratio           "--crossover "        r   (0.01, 0.99)
-mutation_ratio            "--mutation "         r   (0.01, 0.99)
+num_clusters              "--num_clusters"      i   (10, 20)
+crossover_ratio           "--crossover "        r   (0.50, 0.95)
+crossover_prob_modifier   "--crossover_prob"    r   (0.5, 2.0)
+mutation_ratio            "--mutation "         r   (0.01, 0.20)
 tour_size                 "--tour_size "        i   (2, 10)
 neighborhood              "--neighborhood "     r   (0.10, 1.414)
 local_search              "--local_search "     c   (NULL, pls, lmols, nmols, mosa, ce)
+local_search_budget       "--ls_budget"         r   (10.0, 95.0)   | !is_null(local_search_budget)
 ls_pos                    "--ls_pos"            c   (1, 2, 3)     | !is_null(local_search)
 acceptance_criteria_fn    "--acc_fn"            c   (helper.dominates, helper.non.dominated) | local_search %in% c("pls", "mosa")
 pls_rank_cutoff           "--pls_rank_cutoff"   i   (1, 3)              | local_search == "pls"
-pls_max_generations       "--pls_max_gens"      i   (20, 300)           | local_search == "pls"
 ce_rank_cutoff            "--ce_rank_cutoff"    i   (1, 2)              | local_search == "ce"
 mosa_rank_cutoff          "--mosa_rank_cutoff"  i   (2, 7)              | local_search == "mosa"
 alfa                      "--alfa"              r   (0.500, 0.999)      | local_search == "mosa"
-max_steps                 "--max_steps"         r   (100, 3000)         | local_search == "mosa"
 inital_temperature        "--inital_temperature" r  (10, 1000)          | local_search == "mosa"

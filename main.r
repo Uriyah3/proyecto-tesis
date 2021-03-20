@@ -51,7 +51,7 @@ datasets <- list(
   ),
   GSE22405 = list(
     name = "Liver_GSE22405",
-    chip = "GPL10553",
+    chip = "GPL96",
     type = "training",
     cancer = "Liver"
   ),

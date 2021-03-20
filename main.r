@@ -4,25 +4,20 @@ source("matrices_evaluation.r")
 source("globals.r")
 source("evaluator.r")
 source("file_utils.r")
+library(future)
 
 datasets <- list(
+  GSE45827 = list(
+    name = "Breast_GSE45827",
+    chip = "GPL570",
+    type = "evaluation",
+    cancer = "Breast"
+  ),
   GSE53757 = list(
     name = "Renal_GSE53757",
     chip = "GPL570",
     type = "evaluation",
     cancer = "Renal"
-  ),
-  GSE41657 = list(
-    name = "Colorectal_GSE41657",
-    chip = "GPL6480",
-    type = "evaluation",
-    cancer = "Colorectal"
-  ),
-  GSE70947 = list(
-    name = "Breast_GSE70947",
-    chip = "GPL13607",
-    type = "evaluation",
-    cancer = "Breast"
   ),
   GSE28497 = list(
     name = "Leukemia_GSE28497",
@@ -30,15 +25,21 @@ datasets <- list(
     type = "evaluation",
     cancer = "Leukemia"
   ),
+  GSE19804 = list(
+    name = "Lung_GSE19804",
+    chip = "GPL570",
+    type = "evaluation",
+    cancer = "Lung"
+  ),
   GSE6919_U95C = list(
     name = "Prostate_GSE6919_U95C",
-    chip = "GPL8300",
+    chip = "GPL93",
     type = "evaluation",
     cancer = "Prostate"
   ),
   GSE6919_U95B = list(
     name = "Prostate_GSE6919_U95B",
-    chip = "GPL8300",
+    chip = "GPL92",
     type = "training",
     cancer = "Prostate"
   ),
@@ -54,23 +55,17 @@ datasets <- list(
     type = "training",
     cancer = "Liver"
   ),
+  GSE60502 = list(
+    name = "Liver_GSE60502",
+    chip = "GPL96",
+    type = "training",
+    cancer = "Liver"
+  ),
   GSE31189 = list(
     name = "Bladder_GSE31189",
     chip = "GPL570",
     type = "training",
     cancer = "Bladder"
-  ),
-  GSE63459 = list(
-    name = "Lung_GSE63459",
-    chip = "GPL6883",
-    type = "training",
-    cancer = "Lung"
-  ),
-  GSE71449 = list(
-    name = "Leukemia_GSE71449",
-    chip = "GPL19197",
-    type = "training",
-    cancer = "Leukemia"
   ),
   GSE6008 = list(
     name = "Ovary_GSE6008",
@@ -80,6 +75,12 @@ datasets <- list(
   ),
   GSE50161 = list(
     name = "Brain_GSE50161",
+    chip = "GPL570",
+    type = "training",
+    cancer = "Brain"
+  ),
+  GSE15824 = list(
+    name = "Brain_GSE15824",
     chip = "GPL570",
     type = "training",
     cancer = "Brain"
@@ -102,29 +103,29 @@ datasets <- list(
     type = "training",
     cancer = "Breast"
   ),
-  GSE26304 = list(
-    name = "Breast_GSE26304",
-    chip = "GPL6848",
-    type = "training",
-    cancer = "Breast"
-  ),
-  GSE45827 = list(
-    name = "Breast_GSE45827",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Breast"
-  ),
   GSE7904 = list(
     name = "Breast_GSE7904",
     chip = "GPL570",
     type = "training",
     cancer = "Breast"
   ),
-  GSE59246 = list(
-    name = "Breast_GSE59246",
-    chip = "GPL13607",
+  GSE89116 = list(
+    name = "Breast_GSE89116",
+    chip = "GPL6947",
     type = "training",
     cancer = "Breast"
+  ),
+  GSE16515 = list(
+    name = "Pancreatic_GSE16515",
+    chip = "GPL570",
+    type = "training",
+    cancer = "Pancreatic"
+  ),
+  GSE9476 = list(
+    name = "Leukemia_GSE9476",
+    chip = "GPL96",
+    type = "training",
+    cancer = "Leukemia"
   )
 )
 
@@ -205,8 +206,12 @@ load.dataset <- function(dataset) {
 #' Calculate all biological distance matrices and store them in .rda files under
 #' the 'cache' directory to save time in the future.
 #' 
-precalculate.biological.dmatrix <- function() {
-  plan(multisession, gc = TRUE, workers = 22)
+#' @param workers Integer. Number of cpu cores / processes to run in parallel.
+#' It's not recommended to use more than 10 since each process can eat around 
+#' 4-8% of memory (~8 GB RAM)
+#' 
+precalculate.biological.dmatrix <- function(workers = 10) {
+  plan(multisession, gc = TRUE, workers = workers)
   
   for (dataset in datasets) {
     print(dataset)
@@ -214,7 +219,56 @@ precalculate.biological.dmatrix <- function() {
     gene_list <- colnames(data)
     for (biological_source in biological_databases) {
       future({biological.matrix(gene_list, biological_source, dataset=dataset$name)})
+      future({expression.matrix(t(data), dataset=dataset$name)})
     }
   }
 }
 
+#' For each dataset, check how many genes are there before cleaning, after
+#' eliminating genes with no ENTREZ_GENE_ID translation and after translating
+#' each gene.
+#' 
+check.gene.translator.effectiveness <- function() {
+  
+  translation.results <- list()
+  for (dataset in datasets) {
+    dataset.results <- list()
+    
+    # Code copied from the load.dataset method
+    file_name <- paste(dataset$name, '.csv', sep='')
+    file_path <- paste('data/', dataset$type, '/', file_name, sep="")
+    data <- read.dataset(file_path)
+    
+    dataset.results[["all_genes"]] <- ncol(data)
+    
+    chip = dataset$chip
+    # Code copied from the clean.and.translate.entrez.id method
+    gene_list = colnames(data)
+    if( substring(gene_list[1], 1, 1) == "X" ) {
+      gene_list = sapply(gene_list, function(gene) return(substring(gene, 2)), USE.NAMES = FALSE)
+      
+      colnames(data) <- gene_list
+    }
+    
+    gene_translator <- process.gpl(chip)
+    genes_to_keep <- gene_translator[gene_translator$ENTREZ_GENE_ID != "", , drop=FALSE]
+    
+    # Translate to ENTREZ_GENE_ID
+    data <- data[, colnames(data) %in% rownames(genes_to_keep), drop=FALSE]
+    
+    dataset.results[["genes_with_entrez_id"]] <- ncol(data)
+    
+    colnames(data) <- sapply(colnames(data), function(gene_name) {
+      unlist(strsplit(as.character(gene_translator[gene_name, ]), " /// "))[1]
+    })
+    # remove duplicates
+    data <- data[, !duplicated(colnames(data))]
+    
+    dataset.results[["non_duplicated_genes"]] <- ncol(data)
+    
+    translation.results[[dataset$name]] <- dataset.results
+  }
+  
+  saveRDS(translation.results, 'cache/translation_ineffectiveness')
+  translation.results
+}

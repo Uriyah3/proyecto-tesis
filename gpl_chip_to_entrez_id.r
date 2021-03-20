@@ -7,12 +7,13 @@
 #' gpl_data = read.gpl("data/chip_to_entrez_id/GPL96-57554.txt.gz")
 #' 
 read.gpl <- function(filename) {
-  gpl <- read.csv(filename, header = TRUE, sep = "\t", quote= "", dec = ".", row.names = 1, check.names = FALSE)
+  gpl <- read.csv(filename, header = TRUE, sep = "\t", quote= "", dec = ".", row.names = NULL, check.names = FALSE)
 }
 
 # Convert the respective gpl tool to the file that stores its data
 gpl_to_file <- list(
   GPL92 = "data/chip_to_entrez_id/GPL92_limpo.txt.gz",
+  GPL93 = "data/chip_to_entrez_id/GPL93_limpo.txt.gz",
   GPL96 = "data/chip_to_entrez_id/GPL96_limpo.txt.gz",
   GPL570 = "data/chip_to_entrez_id/GPL570_limpo.txt.gz",
   GPL571 = "data/chip_to_entrez_id/GPL571_limpo.txt.gz",
@@ -21,6 +22,8 @@ gpl_to_file <- list(
   GPL6480 = "data/chip_to_entrez_id/GPL6480_limpo.txt.gz",
   GPL6848 = "data/chip_to_entrez_id/GPL6848_limpo.txt.gz",
   GPL6883 = "data/chip_to_entrez_id/GPL6883_limpo.txt.gz",
+  GPL6947 = "data/chip_to_entrez_id/GPL6947_limpo.txt.gz",
+  GPL8300 = "data/chip_to_entrez_id/GPL8300_limpo.txt.gz",
   GPL10553 = "data/chip_to_entrez_id/GPL10553_limpo.txt.gz",
   GPL13607 = "data/chip_to_entrez_id/GPL13607_limpo.txt.gz",
   GPL13667 = "data/chip_to_entrez_id/GPL13667_limpo.txt.gz",
@@ -36,6 +39,8 @@ gpl_to_file <- list(
 #'
 process.gpl <- function(chip) {
   gpl_data <- read.gpl(gpl_to_file[[chip]])
-  gpl_data <- gpl_data[ ,"ENTREZ_GENE_ID", drop=FALSE]
+  
+  colnames(gpl_data) <- toupper(colnames(gpl_data))
+  gpl_data[ ,"ENTREZ_GENE_ID", drop=FALSE]
 }
 

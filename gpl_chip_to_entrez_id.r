@@ -7,7 +7,7 @@
 #' gpl_data = read.gpl("data/chip_to_entrez_id/GPL96-57554.txt.gz")
 #' 
 read.gpl <- function(filename) {
-  gpl <- read.csv(filename, header = TRUE, sep = "\t", quote= "", dec = ".", row.names = NULL, check.names = FALSE)
+  gpl <- read.csv(filename, header = TRUE, sep = "\t", quote= "", dec = ".", row.names = 1, check.names = FALSE)
 }
 
 # Convert the respective gpl tool to the file that stores its data

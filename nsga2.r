@@ -302,7 +302,7 @@ operator.diversify.population <- function(gene_list, num_clusters, population) {
       first_solution <- population[first_idx, 1:num_clusters, drop=FALSE]
       second_solution <- population[second_idx, 1:num_clusters, drop=FALSE]
       
-      similitud[[i]] <- 1 - (num_clusters - length(intersect(first_solution, second_solution))) / num_clusters
+      similitud[[i]] <- length(intersect(first_solution, second_solution)) / num_clusters
       i <- i + 1
     }
   }

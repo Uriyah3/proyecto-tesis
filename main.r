@@ -219,8 +219,8 @@ precalculate.biological.dmatrix <- function(workers = 10) {
     gene_list <- colnames(data)
     for (biological_source in biological_databases) {
       future({biological.matrix(gene_list, biological_source, dataset=dataset$name)})
-      future({expression.matrix(t(data), dataset=dataset$name)})
     }
+    future({expression.matrix(t(data), dataset=dataset$name)})
   }
 }
 
@@ -269,6 +269,42 @@ check.gene.translator.effectiveness <- function() {
     translation.results[[dataset$name]] <- dataset.results
   }
   
-  saveRDS(translation.results, 'cache/translation_ineffectiveness')
+  saveRDS(translation.results, 'cache/translation_ineffectiveness.rda')
   translation.results
+}
+
+#' Compare how similar are each GPL's group of entrez_gene_id in respect
+#' to each other.
+#'
+compare.gpl.platforms <- function() {
+  chips <- unique( unlist( lapply(datasets, '[[', 'chip') ) )
+  
+  chips_data <- list()
+  chips_comparison <- as.data.frame(matrix(NA, length(chips), length(chips)))
+  colnames(chips_comparison) <- chips
+  rownames(chips_comparison) <- chips
+  
+  for (chip in chips) {
+    gene_to_entrez <- process.gpl(chip)
+    gene_to_entrez <- gene_to_entrez[gene_to_entrez$ENTREZ_GENE_ID != "", , drop=FALSE]
+    for (i in 1:nrow(gene_to_entrez)) {
+      gene_to_entrez[i, ] <- unlist(strsplit(as.character(gene_to_entrez[i, ]), " /// "))[1]
+    }
+    
+    chips_data[[chip]] <- gene_to_entrez
+  }
+  
+  for (first_chip in chips) {
+    for (second_chip in chips) {
+      if (first_chip == second_chip) { next }
+      
+      first_chip_data <- chips_data[[first_chip]]
+      second_chip_data <- chips_data[[second_chip]]
+      
+      chips_comparison[first_chip, second_chip] <- round(length(intersect(first_chip_data$ENTREZ_GENE_ID, second_chip_data$ENTREZ_GENE_ID)) / length(union(first_chip_data$ENTREZ_GENE_ID, second_chip_data$ENTREZ_GENE_ID)), 3)
+    }
+  }
+  
+  saveRDS(chips_comparison, 'cache/chips_entrez_gene_id_jaccard.rda')
+  chips_comparison
 }

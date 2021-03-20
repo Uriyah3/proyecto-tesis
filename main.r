@@ -235,7 +235,7 @@ check.gene.translator.effectiveness <- function() {
     dataset.results <- list()
     
     # Code copied from the load.dataset method
-    file_name <- paste(dataset$name, '.csv', sep='')
+    file_name <- paste(dataset$name, '.csv.gz', sep='')
     file_path <- paste('data/', dataset$type, '/', file_name, sep="")
     data <- read.dataset(file_path)
     

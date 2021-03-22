@@ -21,8 +21,8 @@ error() {
     exit 1
 }
 
-EXE=~/bin/program
-FIXED_PARAMS=""
+EXE=Rscript
+FIXED_PARAMS="--vanilla parameter_tuner.r"
 
 CONFIG_ID=$1
 INSTANCE_ID=$2

@@ -7,5 +7,5 @@
 
 # Empty lines and comments are ignored.
 
-Prostate_GSE6919_U95Av2.csv.gz --time 1
-Prostate_GSE6919_U95B.csv.gz --time 2
+Prostate_GSE6919_U95Av2.csv.gz --biological_source go
+Prostate_GSE6919_U95B.csv.gz --biological_source go

@@ -21,8 +21,8 @@ error() {
     exit 1
 }
 
-EXE=Rscript
-FIXED_PARAMS="--vanilla parameter_tuner.r"
+EXE="/home/DIINF/nmariangel/R/bin/Rscript"
+FIXED_PARAMS="--vanilla run_instance.r"
 
 CONFIG_ID=$1
 INSTANCE_ID=$2

@@ -8,6 +8,8 @@ library(STRINGdb)
 library(qusage)
 library(BioCor)
 library(reshape2)
+library(igraph)
+library(biomaRt)
 
 #' Calculate the expression matrix using the data in \code{gene_profiles} and store
 #' the resulting data frame into cache. Loads the data from cache it it was
@@ -212,6 +214,7 @@ biological.matrix.kegg.pathway <- function(gene_list) {
 #' @return An adjacency (sparse) matrix with the combined scores between all pairs 
 #' of genes that exist in the human stringdb. The entrezgene_id is used for
 #' colnames and rownames.
+#' @note Don't forget to download stringdb related files from the stringdb website
 #' 
 helper.download.string <- function(version="11.0", species=9606, score_threshold = 0, input_directory = "stringdb/") {
   cached_filename <- paste("cache/","stringdb-score-data.rda", sep="")
@@ -223,7 +226,7 @@ helper.download.string <- function(version="11.0", species=9606, score_threshold
                              score_threshold=score_threshold, input_directory=input_directory)
   
   human_graph <- string_db$get_graph()
-  adj_matrix <- as_adjacency_matrix(human_graph, attr="combined_score")
+  adj_matrix <- igraph::as_adjacency_matrix(human_graph, attr="combined_score")
   
   mart=useMart(host = 'grch37.ensembl.org',
                biomart='ENSEMBL_MART_ENSEMBL',
@@ -339,19 +342,19 @@ biological.matrix.disgenet.pathway <- function(gene_list) {
 #' @param gene_list Vector of genes using their entrezgene_id.
 #' @return Data frame with biological distance between all pair of genes in \code{gene_list}
 #'
-biological.matrix.disgenet.disease <- function(gene_list) {
+biological.matrix.disgenet.disease <- function(gene_list, nbproc = 2) {
   disgenet_cache_filename <- "cache/disgenet-gene-disease-profiles.rda"
   if( file.exists(disgenet_cache_filename) ) {
     gd_dist <- readRDS(disgenet_cache_filename)
   } else {
     file <- STRINGdb::downloadAbsentFile('https://www.disgenet.org/static/disgenet_ap1/files/downloads/all_gene_disease_associations.tsv.gz', 'disgenet')
-    file_data <- read.table(file, header=TRUE, sep="\t", fill = TRUE)
+    file_data <- read.table(file, header=TRUE, sep="\t", fill = TRUE, quote = "")
     gene_disease_profiles <- dcast(file_data, geneId ~ diseaseId, value.var="score", fill=0)
     gene_disease_profiles$Var.2 <- NULL
-    rownames(gene_disease_profiles) <- gene_disease_profiles$geneId 
+    rownames(gene_disease_profiles) <- gene_disease_profiles$geneId
     gene_disease_profiles$geneId <- NULL
-    gd_dist <- expression.matrix(gene_disease_profiles)
-    saveRDS(hsamd, file = gd_dist)
+    gd_dist <- expression.matrix(gene_disease_profiles, nbproc=nbproc)
+    saveRDS(gd_dist, file = disgenet_cache_filename)
   }
   matrix <- gd_dist[ rownames(gd_dist) %in% gene_list, colnames(gd_dist) %in% gene_list ]
   

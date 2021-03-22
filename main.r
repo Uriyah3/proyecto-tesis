@@ -213,14 +213,18 @@ load.dataset <- function(dataset) {
 precalculate.biological.dmatrix <- function(workers = 10) {
   plan(multisession, gc = TRUE, workers = workers)
   
+  important_biological_databases <- biological_databases
+  important_biological_databases$mesh <- NULL
+  important_biological_databases$disgenet_pw <- NULL
+  important_biological_databases$disease <- NULL
   for (dataset in datasets) {
     print(dataset)
     data <- load.dataset(dataset)
     gene_list <- colnames(data)
-    for (biological_source in biological_databases) {
+    for (biological_source in important_biological_databases) {
       future({biological.matrix(gene_list, biological_source, dataset=dataset$name)})
     }
-    future({expression.matrix(t(data), dataset=dataset$name)})
+    expression.matrix(t(data), dataset=dataset$name, nbproc = 18)
   }
 }
 

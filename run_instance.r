@@ -56,7 +56,7 @@ data <- load.dataset(dataset)
 
 gene_list <- colnames(data)
 dmatrix_expression = expression.matrix(t(data), dataset=dataset$name)
-dmatrix_biological = biological.matrix(gene_list, biological_databases[[biological_source]], dataset=dataset$name)
+dmatrix_biological = biological.matrix(gene_list, biological_databases[[opt$biological_source]], dataset=dataset$name)
 
 rank_cutoff <- NULL
 if (!is.null(opt$pls_rank_cutoff)) {
@@ -67,8 +67,8 @@ if (!is.null(opt$pls_rank_cutoff)) {
   rank_cutoff <- opt$mosa_rank_cutoff
 }
 
-params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=opt$local_search, ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, ls_params=list(acceptance_criteria_fn=opt$acc_fn, rank_cutoff=rank_cutoff, alfa=opt$alfa, intial_temperature=opt$initial_temperature))
+params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa, intial_temperature=opt$initial_temperature))
 
 results <- evaluator.metaheuristics(nsga2.custom, params)
 
-cat(results$centered_hypervolume)
+cat(results$mean_results$centered_hypervolume)

@@ -306,7 +306,7 @@ local.search.pareto.local.search <- function(exploration_size, population, num_c
     archive <- local.search.pareto.local.search(exploration_size - evaluations, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn, rank_cutoff)
   }
   
-  print( paste("Pareto local search found", evaluations, "new solutions") )
+  if (debug) print( paste("Pareto local search found", evaluations, "new solutions") )
   return( archive )
 }
 

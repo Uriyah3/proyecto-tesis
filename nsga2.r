@@ -307,7 +307,6 @@ operator.diversify.population <- function(gene_list, num_clusters, population) {
     }
   }
   factor_similitud <- mean(similitud)
-  print(factor_similitud)
   # Hacer algo si la similitud es muy alta
   
   return( factor_similitud )
@@ -480,8 +479,8 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   while( g <= generations) { # && fitness_counter < evaluations) {
     if (debug) {
       print(paste("running generation:", g))
+      print(paste("start of generation:", fitness_counter))
     }
-    print(paste("start of generation:", fitness_counter))
     
     mating_pool <- operator.selection(population_parents, pool_size, tour_size)
     
@@ -493,11 +492,12 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     population_parents <- population_mix[ 1:population_size, ]
     similitud <- operator.diversify.population(gene_list, num_clusters, population_children)
     similitudes[[g]] <- similitud
+    if (debug) print(similitud)
     
-    print(paste("Before local search:", fitness_counter))
+    if (debug) print(paste("Before local search:", fitness_counter))
     population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params, debug)
     
-    print(paste("after local search:", fitness_counter))
+    if (debug) print(paste("after local search:", fitness_counter))
     g = g + 1
     
     # Print graph and/or debugging values, i.e. results of each iteration

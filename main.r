@@ -210,7 +210,7 @@ load.dataset <- function(dataset) {
 #' It's not recommended to use more than 10 since each process can eat around 
 #' 4-8% of memory (~8 GB RAM)
 #' 
-precalculate.biological.dmatrix <- function(workers = 10) {
+precalculate.biological.dmatrix <- function(workers = 7, expression_nbproc = 8) {
   plan(multisession, gc = TRUE, workers = workers)
   
   important_biological_databases <- biological_databases
@@ -224,7 +224,7 @@ precalculate.biological.dmatrix <- function(workers = 10) {
     for (biological_source in important_biological_databases) {
       future({biological.matrix(gene_list, biological_source, dataset=dataset$name)})
     }
-    expression.matrix(t(data), dataset=dataset$name, nbproc = 18)
+    expression.matrix(t(data), dataset=dataset$name, nbproc = expression_nbproc)
   }
 }
 

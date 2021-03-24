@@ -35,8 +35,6 @@ option_list = list(
               help = "mosa_rank_cutoff"),
   make_option(c("--alfa"), type = "double",
               help = "alfa"),
-  make_option(c("--initial_temperature"), type = "double",
-              help = "initial_temperature"),
   make_option(c("-i", "--input"), type = "character",
               help = "Camino al archivo de prueba"),
   make_option(c("-b", "--biological_source"), type = "character",
@@ -67,7 +65,7 @@ if (!is.null(opt$pls_rank_cutoff)) {
   rank_cutoff <- opt$mosa_rank_cutoff
 }
 
-params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa, intial_temperature=opt$initial_temperature))
+params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa))
 
 results <- evaluator.metaheuristics(nsga2.custom, params)
 

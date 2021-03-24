@@ -40,13 +40,15 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
     
     # 1 change to neighborhood
     # Changes a single gene to one of its neighbors
-    gene <- sample(genes_with_neighbors, 1)[1, ]
-    neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
-
-    gene_index <- sample(1:num_clusters, 1)
-    if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {
-      medoid[, gene_index] <- neighbor_gene
-    }
+    if (length(genes_with_neighbors) > 0) {
+      gene <- sample(genes_with_neighbors, 1)[1, ]
+      neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
+      
+      gene_index <- sample(1:num_clusters, 1)
+      if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {
+        medoid[, gene_index] <- neighbor_gene
+      }
+    } # No neighbors, no change in the medoid
     
     medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
   }
@@ -134,8 +136,8 @@ helper.generate.partial.ensemble <- function(first_solution, second_solution, ex
 }
 
 #' Calculate the probability based on the temperature and the difference of energy
-#' between the new and old solution. Based on the work made by Yang et al.:
-#' "A Simulated Annealing Approach to Find the Optimal Parameters for Fuzzy Clustering Microarray Data"
+#' between the new and old solution. Based on metaheuristics book by El-Ghazali Talbi
+#' Uses boltzmann distribution as the probability.
 #' 
 #' @param objective_exp Float value. Expression based objective of solution being evaluated.
 #' @param objective_bio Float value. Biologic based objective of solution being evaluated.
@@ -145,7 +147,10 @@ helper.generate.partial.ensemble <- function(first_solution, second_solution, ex
 #'
 helper.mosa.probability <- function(objective_exp, objective_bio, solution, temperature)
 {
-  Energy <- sqrt((solution$objective_exp - objective_exp)**2 + (solution$objective_bio - objective_bio)**2)
+  # Energy should be fixed to consider other solutions. A new nondominated solution will only
+  # be good if it also nondominates other solutions on the archive.
+  #Energy <- sqrt((solution$objective_exp - objective_exp)**2 + (solution$objective_bio - objective_bio)**2)
+  Energy <- (0.2) - (solution$objective_exp - objective_exp)**2 + (solution$objective_bio - objective_bio)
   probability <- exp(-(Energy/temperature)) # Probablidad boltzman
 }
 
@@ -444,27 +449,34 @@ local.search.narrow.mols <- function(exploration_size, population, num_clusters,
 #' @param rank_cutoff Integer value. Solutions below this rank are removed from the archive.
 #' @param alfa Float value. Factor used for geomtric cooling.
 #' @param max_steps Integer value. How many steps does the cooling goes on for. Iterations.
-#' @param intial_temperature Float value. Intial temperature used in the geometric cooling.
 #' 
 #' @return Matrix of neighboring solutions that pass the non-dominance criteria.
 #' 
-local.search.mosa <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 5, alfa = 0.95, inital_temperature = 10, debug=FALSE) {
+local.search.mosa <- function(exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn = helper.non.dominated, rank_cutoff = 5, alfa = 0.95, debug=FALSE) {
   
   archive <- ordering_fn(population[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   archive <- cbind( archive, explored=rep( FALSE,nrow(archive) ) )
   archive <- archive[archive$solutions_rank <= rank_cutoff, ]
   
   new_pool_size <- round(sqrt(sqrt(exploration_size)))
-  max_steps <- round(exploration_size * 1.2 / new_pool_size)
+  step <- 0
+  estimated_max_steps <- round(exploration_size * 1.2 / new_pool_size)
   evaluations <- 0
   row_name_id <- 0
+  initial_temperature <- (0.1/alfa**(estimated_max_steps))
+  cooling <- list() # DEBUGG
+  energy <- list() # DEBUGG
+  temperature_l <- list() # DEBUGG
   
-  for(step in 1:max_steps) {
+  while(evaluations < exploration_size) {
+    if (step > exploration_size) {
+      break
+    }
     if (debug) {
       print(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
-    # Geometric cooling, AKA boltzmann probability
-    temperature <- (alfa**step) * inital_temperature
+    # Geometric cooling
+    temperature <- (alfa**step) * initial_temperature
     
     row_index <- rownames( archive[ sample(nrow(archive), 1), ] )[1]
     solution <- archive[row_index, , drop=FALSE]
@@ -482,6 +494,9 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
         
         evaluations <- helper.add.evaluation(fitness_helper, evaluations)
         
+        cooling <- append(cooling, helper.mosa.probability(objective_exp, objective_bio, solution, temperature)) # DEBUGG
+        energy <- append(energy, (0.2) - (solution$objective_exp - objective_exp) + (solution$objective_bio - objective_bio)) # DEBUGG 
+        temperature_l <- append(temperature_l, temperature) # DEBUGG
         # If it passes the acceptance criteria or if it has enough probability
         if( acceptance_criteria_fn(objective_exp, objective_bio, solution) ||
             runif(1) < helper.mosa.probability(objective_exp, objective_bio, solution, temperature) ) {
@@ -498,11 +513,34 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
       )
     }
     
+    step <- step + 1
   }
   archive <- helper.randomize.duplicates( archive, gene_list, num_clusters )
   archive <- ordering_fn(archive[, 1:num_clusters], dmatrix_expression, dmatrix_biological)
   
-  print( paste("Multiobjective simulated annealing ran for", step, "iterations") )
+  if(debug) {
+    data <- cbind(g = 1:length(energy), energy=unlist(energy), prob=unlist(cooling), temperature=(unlist(temperature_l) / max(unlist(temperature_l))))
+    ggplot(as.data.frame(data), aes(x = g)) +
+      geom_line(aes(y = energy), color = 'cyan') +
+      geom_area(aes(y = energy), fill = 'cyan', alpha = .1) +
+      geom_line(aes(y = prob), color="steelblue") +
+      geom_area(aes(y = prob), fill = 'darkred', alpha = .1) +
+      geom_line(aes(y = temperature), color="red") +
+      geom_area(aes(y = temperature), fill = 'white', alpha = .1) +
+      xlab('Generacion') +
+      ylab('Jaccard\npromedio') +
+      ggtitle('Similitud promedio entre todos las soluciones de la poblacion') + ylim(-0.5, 1.5) +
+      theme(text = element_text(color = "#222222")
+            ,panel.background = element_rect(fill = '#444B5A')
+            ,panel.grid.minor = element_line(color = '#4d5566')
+            ,panel.grid.major = element_line(color = '#586174')
+            ,plot.title = element_text(size = 16)
+            ,axis.title = element_text(size = 12, color = '#333333')
+      )
+    
+    ggsave(paste('mosa-prob-energy-', round(stats::runif(1, 1, 10000)), '.png', sep=''), device="png", path="plots")
+    print( paste("Multiobjective simulated annealing ran for", step, "iterations") )
+  }
   return( archive )
 }
 
@@ -601,6 +639,8 @@ local.search.ensemble <- function(exploration_size, population, num_clusters, ge
   # new_archive <- helper.randomize.duplicates(new_archive, gene_list, num_clusters)
   new_archive <- unique(new_archive)
   
-  print( paste("Clustering ensemble ran for", step, "iterations") )
+  if (debug) {
+    print( paste("Clustering ensemble ran for", step, "iterations") )
+  }
   return( new_archive )
 }

@@ -210,7 +210,7 @@ operator.local.search <- function(should_apply, population_size, population, num
     }
     else if( local_search == local_search_algorithms$mosa )
     {
-      new_population <- local.search.mosa(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$alfa, ls_params$initial_temperature, debug = debug)
+      new_population <- local.search.mosa(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, ls_params$alfa, debug = debug)
     }
     else if( local_search == local_search_algorithms$ensemble )
     {
@@ -380,7 +380,7 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 #' @param crossover_prob Probability of taking solutions in rank 1 over solutions in the
 #' lowest rank. 0.5 means 50% less chance of taking solutions in rank 1. 2.0 means 2x the
 #' chance of taking solutions in rank 1 over rank max. Probability goes from this number
-#' to 1.0 linearly over each rank.
+#' to 1.0 linearly over each rank. CURRENTLY NOT USED
 #' @param mutation_ratio Probability of mutating solutions.
 #' @param tour_size Integer. Size of the selection tournament.
 #' @param neighborhodd Float. Max distance to consider two genes as neighbors. [0, 1.414]
@@ -532,9 +532,11 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     print(paste("Se realizaron", fitness_counter, "calculos de la funcion de fitness"))
     
     data <- cbind(g = 1:length(similitudes), sim=unlist(similitudes))
-    ggplot(as.data.frame(data), aes(x = g, y=sim)) +
-      geom_line(color = 'cyan') +
-      geom_area(fill = 'cyan', alpha = .1) +
+    ggplot(as.data.frame(data), aes(x = g)) +
+      geom_line(aes(y = sim), color = 'cyan') +
+      geom_area(aes(y = sim), fill = 'cyan', alpha = .1) +
+      #geom_line(aes(y = g2), color="steelblue") +
+      #geom_area(aes(y = g2), fill = 'darkred', alpha = .1) +
       xlab('Generacion') +
       ylab('Jaccard\npromedio') +
       ggtitle('Similitud promedio entre todos las soluciones de la poblacion') + ylim(0, 1) +

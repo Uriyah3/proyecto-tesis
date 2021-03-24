@@ -15,12 +15,16 @@
 #' updated after running this method.
 #' @return A matrix with neighboring solutions.
 #' 
-helper.generate.neighborhood <- function(exploration_size, num_clusters, solution, neighborhood_matrix, row_name_id) {
+helper.generate.neighborhood <- function(exploration_size, num_clusters, solution, neighborhood_matrix, row_name_id, debug = FALSE) {
+  if (debug) message("Starting neighborhood exploration...")
   medoid_neighborhood <- as.data.frame( matrix(0, exploration_size, (num_clusters)), stringsAsFactors = FALSE )
   
+  if (debug) message("Filtering genes with neigbors...")
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {length(neighborhood_matrix[[gene]]) > 0}) ) ]
   
+  if (debug) message( "The following genes have neighbors" )
+  if (debug) message( genes_with_neighbors )
   for(medoid_generated in 1:nrow(medoid_neighborhood)) {
     medoid <- solution
     
@@ -48,7 +52,10 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
       if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {
         medoid[, gene_index] <- neighbor_gene
       }
-    } # No neighbors, no change in the medoid
+    } else {
+      # No neighbors, no change in the medoid
+      if (debug) message(paste("Gene", gene, "has no neighbors for current configuration"))
+    }
     
     medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
   }
@@ -62,6 +69,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
     paste("V", row_name_id, sep="")
   })
   
+  if (debug) message("neighborhood exploration DONE")
   return(medoid_neighborhood)
 }
 
@@ -266,7 +274,7 @@ local.search.pareto.local.search <- function(exploration_size, population, num_c
     solution <- unexplored[row_index, , drop=FALSE]
     
     # Generate neighborhood
-    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id, debug)
     row_name_id <- row_name_id + exploration_size + 1
     
     # Check if any neighboring solutions pass the acceptance criteria
@@ -351,7 +359,7 @@ local.search.large.mols <- function(exploration_size, population, num_clusters, 
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
     
     solution <- population[row_index, , drop=FALSE]
-    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id, debug)
     row_name_id <- row_name_id + new_pool_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
@@ -409,7 +417,7 @@ local.search.narrow.mols <- function(exploration_size, population, num_clusters,
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
     
     solution <- population[row_index, , drop=FALSE]
-    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id, debug)
     row_name_id <- row_name_id + new_pool_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {
@@ -482,7 +490,7 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
     solution <- archive[row_index, , drop=FALSE]
     
     # Generate neighborhood
-    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id)
+    medoid_neighborhood <- helper.generate.neighborhood(new_pool_size, num_clusters, solution, neighborhood_matrix, row_name_id, debug)
     row_name_id <- row_name_id + new_pool_size + 1
     
     for(i in 1:nrow(medoid_neighborhood)) {

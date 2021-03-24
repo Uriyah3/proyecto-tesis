@@ -222,7 +222,7 @@ precalculate.biological.dmatrix <- function(workers = 7, expression_nbproc = 8) 
     data <- load.dataset(dataset)
     gene_list <- colnames(data)
     for (biological_source in important_biological_databases) {
-      future({biological.matrix(gene_list, biological_source, dataset=dataset$name)})
+      future({biological.matrix(gene_list, biological_source, dataset=dataset$name)}, gc = TRUE)
     }
     expression.matrix(t(data), dataset=dataset$name, nbproc = expression_nbproc)
   }

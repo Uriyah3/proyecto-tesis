@@ -3,6 +3,8 @@ library("optparse")
 source('main.r')
 
 option_list = list(
+  make_option(c("--seed"), type = "integer",
+              help = "random seed"),
   make_option(c("--evaluations"), type = "integer",
               help = "fitness_evaluations"),
   make_option(c("--population"), type = "integer",
@@ -40,11 +42,14 @@ option_list = list(
   make_option(c("-b", "--biological_source"), type = "character",
               help = "Fuente biológica que se debe utilizar"),
   make_option(c("-g", "--gpl"), type = "character",
-              help = "Plataforma GPL que utiliza el dataset")
+              help = "Plataforma GPL que utiliza el dataset"),
+  make_option(c("-d", "--debug"), type = "logical",
+              help = "Imprimir debugging output", default=FALSE)
 ); 
 
 opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
+set.seed(opt$seed)
 
 dataset <- tools::file_path_sans_ext(tools::file_path_sans_ext(basename(opt$input)))
 dataset <- str_split_fixed(dataset, "_", 2)[2]
@@ -65,7 +70,7 @@ if (!is.null(opt$pls_rank_cutoff)) {
   rank_cutoff <- opt$mosa_rank_cutoff
 }
 
-params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa))
+params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, debug=opt$debug, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa))
 
 results <- evaluator.metaheuristics(nsga2.custom, params)
 

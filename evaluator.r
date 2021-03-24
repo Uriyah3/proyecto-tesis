@@ -175,7 +175,7 @@ evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator =
   })
   
   full_results <- results
-  #print( results )
+  #message( results )
   mean_results <- unlist(results)
   mean_results <- c(by(mean_results, names(mean_results), mean, na.rm = TRUE))
   return( list(

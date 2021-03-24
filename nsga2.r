@@ -387,7 +387,7 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 #' @return List. population and clustering. Approximation to the Pareto Front and cluster
 #' to which each gene belongs to in each solution in the Pareto Front respectively.
 #' 
-nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, print_iteration=FALSE) {
+nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, message_iteration=FALSE) {
   
   # Sanity checks
   if( nrow( dmatrix_expression ) != ncol( dmatrix_expression ) || nrow( dmatrix_biological ) != ncol( dmatrix_biological ) ) {
@@ -461,10 +461,10 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   }
   
   if (debug) {
-    print(str_interp("Running with a total budget = ${original_evaluations}"))
-    print(str_interp("Running NSGA-II with pool_size=${pool_size} for ${generations} generations with a budget of ${nsga_budget*2}"))
+    message(str_interp("Running with a total budget = ${original_evaluations}"))
+    message(str_interp("Running NSGA-II with pool_size=${pool_size} for ${generations} generations with a budget of ${nsga_budget*2}"))
     if ( !is.null(local_search) ) {
-      print(str_interp("Running local search with a budget of ${ls_budget*2} using ${ls_params['exploration_size']} each run"))
+      message(str_interp("Running local search with a budget of ${ls_budget*2} using ${ls_params['exploration_size']} each run"))
     }
   }
   
@@ -478,8 +478,8 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   similitudes <- list()
   while( g <= generations) { # && fitness_counter < evaluations) {
     if (debug) {
-      print(paste("running generation:", g))
-      print(paste("start of generation:", fitness_counter))
+      message(paste("running generation:", g))
+      message(paste("start of generation:", fitness_counter))
     }
     
     mating_pool <- operator.selection(population_parents, pool_size, tour_size)
@@ -492,25 +492,25 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     population_parents <- population_mix[ 1:population_size, ]
     similitud <- operator.diversify.population(gene_list, num_clusters, population_children)
     similitudes[[g]] <- similitud
-    if (debug) print(similitud)
+    if (debug) message(similitud)
     
-    if (debug) print(paste("Before local search:", fitness_counter))
+    if (debug) message(paste("Before local search:", fitness_counter))
     population_parents <- operator.local.search(ls_pos == 2, population_size, population_parents, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params, debug)
     
-    if (debug) print(paste("after local search:", fitness_counter))
+    if (debug) message(paste("after local search:", fitness_counter))
     g = g + 1
     
-    # Print graph and/or debugging values, i.e. results of each iteration
-    if (debug && print_iteration) {
+    # message graph and/or debugging values, i.e. results of each iteration
+    if (debug && message_iteration) {
       results <- generate.results(population_size, num_clusters, population_parents, dmatrix_expression, dmatrix_biological)
       metrics <- evaluator.multiobjective.clustering.no.bio( results, dmatrix_expression )
       
       if (debug) {
-        print(population_parents)
-        print(metrics)
+        message(population_parents)
+        message(metrics)
       }
       
-      if (print_iteration) {
+      if (message_iteration) {
         d <- results$population[, colnames(results$population) %in% c('objective_exp', 'objective_bio')]
         ggplot() +
           geom_step(data=d, mapping=aes(x=objective_exp, y=objective_bio)) +
@@ -529,7 +529,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   
   # Show similarity change from generation to generation
   if (debug) {
-    print(paste("Se realizaron", fitness_counter, "calculos de la funcion de fitness"))
+    message(paste("Se realizaron", fitness_counter, "calculos de la funcion de fitness"))
     
     data <- cbind(g = 1:length(similitudes), sim=unlist(similitudes))
     ggplot(as.data.frame(data), aes(x = g)) +

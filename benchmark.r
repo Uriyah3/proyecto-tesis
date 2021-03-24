@@ -26,7 +26,7 @@ mosa_results <- vector("list", 11)
 for(i in 1:11) {
   start.time <- Sys.time()
   
-  print(paste("Procesando nsga numero", i))
+  message(paste("Procesando nsga numero", i))
   nsga_results[[i]] <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 50, generations = 20, num_clusters = 4)
   
   end.time <- Sys.time()
@@ -36,7 +36,7 @@ for(i in 1:11) {
   nsga_results[[i]]$fitness_counter <- fitness_counter
   nsga_results[[i]]$time <- time.taken
   
-  print(nsga_results[[i]])
+  message(nsga_results[[i]])
 }
 
 neighborhood <- 0.48
@@ -49,7 +49,7 @@ neighborhood_matrix <- sapply(gene_list, function(gene) {
 for(i in 1:11) {
   start.time <- Sys.time()
   
-  print(paste("Procesando pls numero", i))
+  message(paste("Procesando pls numero", i))
   initial_population <- generate.initial.population(gene_list, 80, 7)
   fitness_hash <<- hash()
   fitness_counter <<- 0
@@ -65,14 +65,14 @@ for(i in 1:11) {
   pls_results[[i]]$time <- time.taken
   
   clear(fitness_hash)
-  print(pls_results[[i]]$metrics)
-  print(pls_results[[i]]$time)
+  message(pls_results[[i]]$metrics)
+  message(pls_results[[i]]$time)
 }
 
 for(i in 1:11) {
   start.time <- Sys.time()
   
-  print(paste("Procesando mosa numero", i))
+  message(paste("Procesando mosa numero", i))
   initial_population <- generate.initial.population(gene_list, 60, 7)
   fitness_hash <<- hash()
   fitness_counter <<- 0
@@ -88,8 +88,8 @@ for(i in 1:11) {
   mosa_results[[i]]$time <- time.taken
   
   clear(fitness_hash)
-  print(mosa_results[[i]]$metrics)
-  print(mosa_results[[i]]$time)
+  message(mosa_results[[i]]$metrics)
+  message(mosa_results[[i]]$time)
 }
 
 process.metric.data <- function(data) {
@@ -156,8 +156,8 @@ show_results <- function(data, type="NSGA-II") {
     str_interp("${type}_resultados_hypervolumen.png")
   )
   
-  print(str_interp("Tiempo promedio de ${type}: ${format(.POSIXct(data$mean_time,tz='GMT'), '%H:%M:%S')}"))
-  print(str_interp("Calculos de fitness en promedio: ${data$mean_fitness_counter}"))
+  message(str_interp("Tiempo promedio de ${type}: ${format(.POSIXct(data$mean_time,tz='GMT'), '%H:%M:%S')}"))
+  message(str_interp("Calculos de fitness en promedio: ${data$mean_fitness_counter}"))
   
   return(data)
 }
@@ -193,17 +193,17 @@ compare_results <- function(data1, data2, data3, data4) {
   data3 <- process.metric.data(data3)
   data4 <- process.metric.data(data4)
   
-  print(str_interp("Tiempo promedio de NSGA-II GO (p=80, g=40, k=7): ${format(.POSIXct(data1$mean_time,tz='GMT'), '%H:%M:%S')}"))
-  print(str_interp("Calculos de fitness en promedio: ${data1$mean_fitness_counter}"))
+  message(str_interp("Tiempo promedio de NSGA-II GO (p=80, g=40, k=7): ${format(.POSIXct(data1$mean_time,tz='GMT'), '%H:%M:%S')}"))
+  message(str_interp("Calculos de fitness en promedio: ${data1$mean_fitness_counter}"))
   
-  print(str_interp("Tiempo promedio de NSGA-II STRING (p=50, g=20, k=4): ${format(.POSIXct(data2$mean_time,tz='GMT'), '%H:%M:%S')}"))
-  print(str_interp("Calculos de fitness en promedio: ${data2$mean_fitness_counter}"))
+  message(str_interp("Tiempo promedio de NSGA-II STRING (p=50, g=20, k=4): ${format(.POSIXct(data2$mean_time,tz='GMT'), '%H:%M:%S')}"))
+  message(str_interp("Calculos de fitness en promedio: ${data2$mean_fitness_counter}"))
   
-  print(str_interp("Tiempo promedio de PLS GO (p=80, k=7, iter=150): ${format(.POSIXct(data3$mean_time,tz='GMT'), '%H:%M:%S')}"))
-  print(str_interp("Calculos de fitness en promedio: ${data3$mean_fitness_counter}"))
+  message(str_interp("Tiempo promedio de PLS GO (p=80, k=7, iter=150): ${format(.POSIXct(data3$mean_time,tz='GMT'), '%H:%M:%S')}"))
+  message(str_interp("Calculos de fitness en promedio: ${data3$mean_fitness_counter}"))
   
-  print(str_interp("Tiempo promedio de MOSA GO (p=80, k=7, iter=850): ${format(.POSIXct(data4$mean_time,tz='GMT'), '%H:%M:%S')}"))
-  print(str_interp("Calculos de fitness en promedio: ${data4$mean_fitness_counter}"))
+  message(str_interp("Tiempo promedio de MOSA GO (p=80, k=7, iter=850): ${format(.POSIXct(data4$mean_time,tz='GMT'), '%H:%M:%S')}"))
+  message(str_interp("Calculos de fitness en promedio: ${data4$mean_fitness_counter}"))
   
   c_hypervolume <- cbind(data1$c_hypervolume, data2$c_hypervolume, data3$c_hypervolume, data4$c_hypervolume)
   n_hypervolume <- cbind(data1$n_hypervolume, data2$n_hypervolume, data3$n_hypervolume, data4$n_hypervolume)

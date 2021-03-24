@@ -218,7 +218,7 @@ precalculate.biological.dmatrix <- function(workers = 7, expression_nbproc = 8) 
   important_biological_databases$disgenet_pw <- NULL
   important_biological_databases$disease <- NULL
   for (dataset in datasets) {
-    print(dataset)
+    message(dataset)
     data <- load.dataset(dataset)
     gene_list <- colnames(data)
     for (biological_source in important_biological_databases) {

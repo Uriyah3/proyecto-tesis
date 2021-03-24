@@ -53,9 +53,9 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
     medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]
   }
   
-  #print( paste("Neighbors found:", nrow(medoid_neighborhood), "without duplication")  )
+  #message( paste("Neighbors found:", nrow(medoid_neighborhood), "without duplication")  )
   medoid_neighborhood <- medoid_neighborhood[ !duplicated(medoid_neighborhood[, 1:num_clusters]), ]
-  #print( paste("Neighbors found:", nrow(medoid_neighborhood), "removing duplication")  )
+  #message( paste("Neighbors found:", nrow(medoid_neighborhood), "removing duplication")  )
   medoid_neighborhood <- cbind(medoid_neighborhood, add=rep( FALSE,nrow(medoid_neighborhood) ) )
   rownames(medoid_neighborhood) <- sapply(rownames(medoid_neighborhood), function(unused) {
     row_name_id <<- row_name_id + 1
@@ -258,7 +258,7 @@ local.search.pareto.local.search <- function(exploration_size, population, num_c
   # Loop until alocated budget is used or until there are no more unexplored solutions
   while( sum(archive[, ncol(archive)]) < nrow(archive) && evaluations < exploration_size ) {
     if (debug) {
-      print(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
+      message(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
     # Choose an unexplored solution
     unexplored <- archive[archive$explored == FALSE, , drop=FALSE]
@@ -311,7 +311,7 @@ local.search.pareto.local.search <- function(exploration_size, population, num_c
     archive <- local.search.pareto.local.search(exploration_size - evaluations, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, ordering_fn, fitness_fn, acceptance_criteria_fn, rank_cutoff)
   }
   
-  if (debug) print( paste("Pareto local search found", evaluations, "new solutions") )
+  if (debug) message( paste("Pareto local search found", evaluations, "new solutions") )
   return( archive )
 }
 
@@ -345,7 +345,7 @@ local.search.large.mols <- function(exploration_size, population, num_clusters, 
   # Explore the neighbors of every solution in the population
   for(row_index in 1:nrow(population)) {
     if (debug) {
-      print(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
+      message(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
     # Actualizar pool_size
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
@@ -403,7 +403,7 @@ local.search.narrow.mols <- function(exploration_size, population, num_clusters,
   # Explore the neighbors of every solution in the population
   for(row_index in 1:nrow(population)) {
     if (debug) {
-      print(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
+      message(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
     # Actualizar pool_size
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
@@ -473,7 +473,7 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
       break
     }
     if (debug) {
-      print(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
+      message(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
     # Geometric cooling
     temperature <- (alfa**step) * initial_temperature
@@ -539,7 +539,7 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
       )
     
     ggsave(paste('mosa-prob-energy-', round(stats::runif(1, 1, 10000)), '.png', sep=''), device="png", path="plots")
-    print( paste("Multiobjective simulated annealing ran for", step, "iterations") )
+    message( paste("Multiobjective simulated annealing ran for", step, "iterations") )
   }
   return( archive )
 }
@@ -581,7 +581,7 @@ local.search.ensemble <- function(exploration_size, population, num_clusters, ge
     # Combine each pair of solutions in the top rank_cutoff ranks.
     for(first_idx in 1:nrow(archive)) {
       for(second_idx in (first_idx + 1):nrow(archive)) {
-        #print(paste("[", first_idx, ", ", second_idx, "]", sep=""))
+        #message(paste("[", first_idx, ", ", second_idx, "]", sep=""))
         if( second_idx > nrow(archive) || second_idx == first_idx) next
         
         medoid_combinations <- helper.generate.ensemble(archive[first_idx, 1:num_clusters], archive[second_idx, 1:num_clusters], row_name_id)
@@ -629,7 +629,7 @@ local.search.ensemble <- function(exploration_size, population, num_clusters, ge
       }
       
       if (debug) {
-        print(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
+        message(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
       }
       step <- step + 1
     }
@@ -640,7 +640,7 @@ local.search.ensemble <- function(exploration_size, population, num_clusters, ge
   new_archive <- unique(new_archive)
   
   if (debug) {
-    print( paste("Clustering ensemble ran for", step, "iterations") )
+    message( paste("Clustering ensemble ran for", step, "iterations") )
   }
   return( new_archive )
 }

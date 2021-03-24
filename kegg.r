@@ -44,7 +44,7 @@ kegg.build.neo4j.database <- function() {
   # Group genes by pathway
   # hsa_data <- split(rep(names(hsa_links), lengths(hsa_links)), unlist(hsa_links))
   
-  print("Creating Pathways (hsa_paths)...")
+  message("Creating Pathways (hsa_paths)...")
   insert <- ""
   group_by = 50
   for(i in 1:length(hsa_paths)) {
@@ -57,7 +57,7 @@ kegg.build.neo4j.database <- function() {
     }
   }
   
-  print("Creating Genes (hsa_genes)...")
+  message("Creating Genes (hsa_genes)...")
   insert <- ""
   group_by = 40
   for(i in 1:length(hsa_genes)) {
@@ -70,7 +70,7 @@ kegg.build.neo4j.database <- function() {
     }
   }
   
-  print("Creating Links (hsa_links)...")
+  message("Creating Links (hsa_links)...")
   insert <- ""
   group_by = 50
   for(i in 30431:length(hsa_links)) {
@@ -88,7 +88,7 @@ kegg.build.neo4j.database <- function() {
   }
   
   neo4j.create.graph()
-  print("Calculating similarity between genes...")
+  message("Calculating similarity between genes...")
   results <- neo4j.calculate.similarities()
 }
 

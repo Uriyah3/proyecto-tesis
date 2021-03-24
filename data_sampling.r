@@ -23,7 +23,7 @@ run.sampling <- function(samples_per_file = 10, sampling_percent = 5, minimum_ro
   data_files <- paste0(data_dir, data_files)
   for (data_file in data_files) {
     if(file_ext(data_file) == 'gz' || file_ext(data_file) == 'csv') {
-      print(str_interp("Generating samples for: ${data_file} ..."))
+      message(str_interp("Generating samples for: ${data_file} ..."))
       generate.samples(data_file, samples_per_file, sampling_percent, minimum_row_size, minimum_col_size)
       gc()
     }
@@ -39,7 +39,7 @@ generate.samples <- function(dataset_file, number_of_samples, sampling_percent, 
   output_file <- paste(sample_dir, "/", output_file, sep = "")
 
   for (i in 1:number_of_samples) {
-    print(str_interp("Generating sample ${i}/${number_of_samples}"))
+    message(str_interp("Generating sample ${i}/${number_of_samples}"))
     rows <- nrow(data)
     cols <- ncol(data)
     

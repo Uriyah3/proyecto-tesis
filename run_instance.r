@@ -64,9 +64,9 @@ dmatrix_biological = biological.matrix(gene_list, biological_databases[[opt$biol
 rank_cutoff <- NULL
 if (!is.null(opt$pls_rank_cutoff)) {
   rank_cutoff <- opt$pls_rank_cutoff
-} else if (!is.nul(opt$ce_rank_cutoff)) {
+} else if (!is.null(opt$ce_rank_cutoff)) {
   rank_cutoff <- opt$ce_rank_cutoff
-} else if (!is.nul(opt$mosa_rank_cutoff)) {
+} else if (!is.null(opt$mosa_rank_cutoff)) {
   rank_cutoff <- opt$mosa_rank_cutoff
 }
 

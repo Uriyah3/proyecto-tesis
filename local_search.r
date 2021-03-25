@@ -21,7 +21,16 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   
   if (debug) message("Filtering genes with neigbors...")
   genes_with_neighbors <- solution[, 1:num_clusters]
-  genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {length(neighborhood_matrix[[gene]]) > 0}) ) ]
+  genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {
+    if (gene %in% neighborhood_matrix) {
+      return( length(neighborhood_matrix[[gene]]) > 0 )
+    } else {
+      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+      message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))
+      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+      return( FALSE )
+    }
+  })) ]
   
   if (debug) message( "The following genes have neighbors" )
   if (debug) message( genes_with_neighbors )
@@ -54,7 +63,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
       }
     } else {
       # No neighbors, no change in the medoid
-      if (debug) message(paste("Gene", gene, "has no neighbors for current configuration"))
+      if (debug) message(paste("Medoid ", medoid, "has no neighbors for current configuration"))
     }
     
     medoid_neighborhood[medoid_generated, ] <- medoid[, 1:num_clusters]

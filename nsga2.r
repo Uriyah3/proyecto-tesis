@@ -194,11 +194,7 @@ operator.local.search <- function(should_apply, population_size, population, num
     
     if( local_search == local_search_algorithms$pls ) 
     {
-      if( is.null(ls_params) ) {
-        new_population <- local.search.pareto.local.search(population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, debug = debug)
-      } else {
-        new_population <- local.search.pareto.local.search(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, debug = debug)
-      }
+      new_population <- local.search.pareto.local.search(ls_params$exploration_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, operator.nsga2.sorting.and.crowding, fitness.medoid.wg, ls_params$acceptance_criteria_fn, ls_params$rank_cutoff, debug = debug)
     } 
     else if( local_search == local_search_algorithms$nmols ) 
     {

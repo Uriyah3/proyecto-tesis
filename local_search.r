@@ -22,7 +22,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   if (debug) message("Filtering genes with neigbors...")
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {
-    if (gene %in% neighborhood_matrix) {
+    if (gene %in% names(neighborhood_matrix)) {
       return( length(neighborhood_matrix[[gene]]) > 0 )
     } else {
       message("----BUG----BUG----BUG----BUG----BUG----BUG----")

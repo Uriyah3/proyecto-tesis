@@ -54,6 +54,8 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 set.seed(opt$seed)
 
+message(opt)
+
 dataset <- tools::file_path_sans_ext(tools::file_path_sans_ext(basename(opt$input)))
 dataset <- str_split_fixed(dataset, "_", 2)[2]
 dataset <- datasets[[dataset]]

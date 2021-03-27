@@ -60,6 +60,8 @@ dataset <- tools::file_path_sans_ext(tools::file_path_sans_ext(basename(opt$inpu
 dataset <- str_split_fixed(dataset, "_", 2)[2]
 dataset <- datasets[[dataset]]
 
+message(dataset)
+
 # No es necesario cargar los datos originales si tengo todas las matrices de 
 # distancias precalculadas en archivos .rda
 # data <- load.dataset(dataset)
@@ -89,7 +91,7 @@ if (!is.null(opt$neighborhood)) {
   # Find genes that are close to one another
   neighborhood_matrix <- future_sapply(gene_list, function(gene) {
     neighborhood_genes <- dmatrix_combined[gene, , drop=FALSE]
-    apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < neighborhood)] )
+    apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < opt$neighborhood)] )
   })
   dmatrix_combined <- NULL
   gc(verbose=FALSE)
@@ -101,6 +103,9 @@ params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix
 
 results <- evaluator.metaheuristics(nsga2.custom, params, debug = opt$debug)
 
-if (opt$debug) message("Returning mean hypervolume (1,1) reference point")
+if (opt$debug) {
+  message(results)
+  message("Returning mean hypervolume (1,1) reference point")
+}
 
 cat(results$mean_results$centered_hypervolume * -1)

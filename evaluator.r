@@ -157,8 +157,15 @@ evaluator.biological.anotate.list <- function( gene_list ) {
   #)
 }
 
-evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13) {
+evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE) {
+  
   results <- lapply( 1:runs, function(n) {
+    if (debug) {
+      message("--------------------------------------------------")
+      message(paste("Running metaheuristic on iteration:", n))
+      message("\n\n\n")
+    }
+    
     start.time <- Sys.time()
     
     metaheuristic_results <- do.call(metaheuristic, meta_params)

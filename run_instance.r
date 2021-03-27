@@ -31,7 +31,7 @@ option_list = list(
   make_option(c("--ls_pos"), type = "character",
               help = "ls_pos"),
   make_option(c("--acc_fn"), type = "character",
-              help = "acceptance_criteria_fn"),
+              help = "acceptance_criteria_fn", default="helper.dominates"),
   make_option(c("--pls_rank_cutoff"), type = "integer",
               help = "pls_rank_cutoff"),
   make_option(c("--ce_rank_cutoff"), type = "integer",
@@ -103,4 +103,4 @@ results <- evaluator.metaheuristics(nsga2.custom, params, debug = opt$debug)
 
 if (opt$debug) message("Returning mean hypervolume (1,1) reference point")
 
-cat(results$mean_results$centered_hypervolume)
+cat(results$mean_results$centered_hypervolume * -1)

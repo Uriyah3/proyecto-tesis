@@ -2,6 +2,7 @@ library(nsga2R)
 library(hash)
 library(ggplot2)
 library(stringr)
+library(future.apply)
 
 source("local_search.r")
 source("globals.r")
@@ -142,13 +143,13 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   # Calcular distancia mínima de cada gene a su cluster.
   elements <- nrow( gene_dmatrix )
   medoids <- length( cluster_solution )
-  distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ]
+  distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ] # optimize this line
   
   # Promediar distancia de un gen a su cluster con la minima distancia a otro cluster
-  Rm <- sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } )
+  Rm <- future_sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } ) # optimize this line
   
   # Sacar el Jk de cada cluster
-  clustering <- apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)])
+  clustering <- future_apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)]) # The most costly line of this code
   Jk <- as.data.frame(cbind(Rm, clustering), stringsAsFactors = FALSE)
   Jk <- transform(Jk, Rm = as.numeric(Rm))
   elements_k <- aggregate(Rm ~ clustering, Jk, length)
@@ -383,7 +384,9 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 #' @return List. population and clustering. Approximation to the Pareto Front and cluster
 #' to which each gene belongs to in each solution in the Pareto Front respectively.
 #' 
-nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, message_iteration=FALSE) {
+nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, message_iteration=FALSE, neighborhood_matrix=NULL, nbproc=1) {
+  plan(multicore)
+  options(mc.cores=nbproc)
   
   # Sanity checks
   if( nrow( dmatrix_expression ) != ncol( dmatrix_expression ) || nrow( dmatrix_biological ) != ncol( dmatrix_biological ) ) {
@@ -417,16 +420,17 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   if(exists("fitness_hash")) rm("fitness_hash", envir = globalenv())
   fitness_hash <<- hash()
   
-  if( !is.null(local_search) ) {
+  if( !is.null(local_search) && is.null(neighborhood_matrix) ) {
     # Sum distance matrix
     #dmatrix_combined <- dmatrix_expression + dmatrix_biological
     # Euclidean distance matrix
     dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
     # Find genes that are close to one another
-    neighborhood_matrix <- sapply(gene_list, function(gene) {
+    neighborhood_matrix <- future_sapply(gene_list, function(gene) {
       neighborhood_genes <- dmatrix_combined[gene, , drop=FALSE]
-      apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.00 & x < neighborhood)] )
+      apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < neighborhood)] )
     })
+    dmatrix_combined <- NULL
   }
 
   # Divide budget size by 2 to take into account that each solution is evaluated twice

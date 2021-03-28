@@ -77,7 +77,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
 
 helper.get.neighborhood.gene <- function(neighborhood_matrix, gene) {
   if (gene %in% rownames(neighborhood_matrix)) {
-    return(neighborhood_matrix[gene, which(neighborhood_matrix[gene, ])])
+    return(names(neighborhood_matrix[gene, which(neighborhood_matrix[gene, ])]))
   } else {
     message("----BUG----BUG----BUG----BUG----BUG----BUG----")
     message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))

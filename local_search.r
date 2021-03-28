@@ -22,7 +22,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   if (debug) message("Filtering genes with neigbors...")
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {
-    return( length(helper.get.neighborhood.gene(neighborhood_matrix, gene)) )
+    return( length(helper.get.neighborhood.gene(neighborhood_matrix, gene)) > 0 )
   })) ]
   
   if (debug) message( "The following genes have neighbors" )
@@ -48,7 +48,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
     # Changes a single gene to one of its neighbors
     if (length(genes_with_neighbors) > 0) {
       gene <- sample(genes_with_neighbors, 1)[1, ]
-      neighbor_gene <- sample( neighborhood_matrix[[gene]], 1 )
+      neighbor_gene <- sample( helper.get.neighborhood.gene(neighborhood_matrix, gene), 1 )
       
       gene_index <- sample(1:num_clusters, 1)
       if( !(neighbor_gene %in% medoid[, 1:num_clusters]) ) {

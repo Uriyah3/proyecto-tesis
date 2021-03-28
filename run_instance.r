@@ -114,4 +114,4 @@ if (opt$debug) {
   message("Returning mean hypervolume (1,1) reference point")
 }
 
-cat(results$mean_results$centered_hypervolume * -1)
+cat(results[["mean_results"]][["hypervolume.centered_hypervolume"]] * -1)

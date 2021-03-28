@@ -373,6 +373,9 @@ local.search.large.mols <- function(exploration_size, population, num_clusters, 
     if (debug) {
       message(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }
+    if (evaluations >= exploration_size) {
+      break
+    }
     # Actualizar pool_size
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
     
@@ -430,6 +433,9 @@ local.search.narrow.mols <- function(exploration_size, population, num_clusters,
   for(row_index in 1:nrow(population)) {
     if (debug) {
       message(paste("Evaluations: ", evaluations, "/", exploration_size, sep=""))
+    }
+    if (evaluations >= exploration_size) {
+      break
     }
     # Actualizar pool_size
     new_pool_size <- round((exploration_size - evaluations) / (nrow(population) - row_index + 1))
@@ -494,10 +500,7 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
   energy <- list() # DEBUGG
   temperature_l <- list() # DEBUGG
   
-  while(evaluations < exploration_size) {
-    if (step > exploration_size) {
-      break
-    }
+  while(evaluations < exploration_size && step < exploration_size) {
     if (debug) {
       message(paste("Step: ", step, ". Evaluations: ", evaluations, "/", exploration_size, sep=""))
     }

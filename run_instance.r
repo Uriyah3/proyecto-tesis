@@ -95,6 +95,10 @@ if (!is.null(opt$neighborhood)) {
     neighborhood_genes <- dmatrix_combined[gene, , drop=FALSE]
     apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < opt$neighborhood)] )
   })
+  # Such a neighborhood matrix uses too much memory, just consider it as all genes are neighbors
+  if (length(unlist(neighborhood_matrix)) > length(gene_list) * (length(gene_list) - 1) *0.9) {
+    neighborhood_matrix <- gene_list
+  }
   dmatrix_combined <- NULL
   invisible(gc())
 }

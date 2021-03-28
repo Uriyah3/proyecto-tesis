@@ -22,14 +22,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   if (debug) message("Filtering genes with neigbors...")
   genes_with_neighbors <- solution[, 1:num_clusters]
   genes_with_neighbors <- genes_with_neighbors[(sapply(genes_with_neighbors, function(gene) {
-    if (gene %in% names(neighborhood_matrix)) {
-      return( length(neighborhood_matrix[[gene]]) > 0 )
-    } else {
-      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
-      message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))
-      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
-      return( FALSE )
-    }
+    return( length(helper.get.neighborhood.gene(neighborhood_matrix, gene)) )
   })) ]
   
   if (debug) message( "The following genes have neighbors" )
@@ -80,6 +73,22 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   
   if (debug) message("neighborhood exploration DONE")
   return(medoid_neighborhood)
+}
+
+helper.get.neighborhood.gene <- function(neighborhood_matrix, gene) {
+  if (is.list(neighborhood_matrix)) {
+    if (gene %in% names(neighborhood_matrix)) {
+      return(neighborhood_matrix[[gene]])
+    } else {
+      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+      message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))
+      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+      return( list() )
+    } 
+  } else {
+    # Todos los genes son vecinos con todos
+    return(neighborhood_matrix[neighborhood_matrix != gene])
+  }
 }
 
 #' Helper for the Clustering ensemble local search method.

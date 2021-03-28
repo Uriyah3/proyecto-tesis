@@ -421,6 +421,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   fitness_hash <<- hash()
   
   if( !is.null(local_search) && is.null(neighborhood_matrix) ) {
+    if (debug) message("NSGA2: Precalculating neighborhood_matrix")
     # Sum distance matrix
     #dmatrix_combined <- dmatrix_expression + dmatrix_biological
     # Euclidean distance matrix

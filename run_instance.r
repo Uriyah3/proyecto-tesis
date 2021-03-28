@@ -81,6 +81,7 @@ if (!is.null(opt$pls_rank_cutoff)) {
   rank_cutoff <- opt$mosa_rank_cutoff
 }
 
+neighborhood_matrix <- NULL
 if (!is.null(opt$neighborhood)) {
   if(opt$debug) message("Precalculating neighborhood_matrix")
   plan(multicore)
@@ -99,7 +100,7 @@ if (!is.null(opt$neighborhood)) {
 
 if (opt$debug) message("Starting metaheuristics evaluation...")
 
-params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, debug=opt$debug, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa), nbproc=opt$nbproc)
+params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, debug=opt$debug, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa), nbproc=opt$nbproc, neighborhood_matrix=neighborhood_matrix)
 
 results <- evaluator.metaheuristics(nsga2.custom, params, debug = opt$debug)
 

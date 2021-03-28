@@ -424,15 +424,9 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     # Euclidean distance matrix
     dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
     # Find genes that are close to one another
-    neighborhood_matrix <- sapply(gene_list, function(gene) {
-      neighborhood_genes <- dmatrix_combined[gene, , drop=FALSE]
-      apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < neighborhood)] )
-    })
-    # Such a neighborhood matrix uses too much memory, just consider it as all genes are neigbors
-    if (length(unlist(neighborhood_matrix)) > length(gene_list) * (length(gene_list) - 1) *0.9) {
-      neighborhood_matrix <- gene_list
-    }
+    neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < opt$neighborhood)
     dmatrix_combined <- NULL
+    invisible(gc())
   }
 
   # Divide budget size by 2 to take into account that each solution is evaluated twice

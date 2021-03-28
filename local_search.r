@@ -76,19 +76,14 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
 }
 
 helper.get.neighborhood.gene <- function(neighborhood_matrix, gene) {
-  if (is.list(neighborhood_matrix)) {
-    if (gene %in% names(neighborhood_matrix)) {
-      return(neighborhood_matrix[[gene]])
-    } else {
-      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
-      message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))
-      message("----BUG----BUG----BUG----BUG----BUG----BUG----")
-      return( list() )
-    } 
+  if (gene %in% rownames(neighborhood_matrix)) {
+    return(neighborhood_matrix[gene, which(neighborhood_matrix[gene, ])])
   } else {
-    # Todos los genes son vecinos con todos
-    return(neighborhood_matrix[neighborhood_matrix != gene])
-  }
+    message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+    message(paste("Couldn't find the following gene in the neighborhood matrix:", gene))
+    message("----BUG----BUG----BUG----BUG----BUG----BUG----")
+    return( list() )
+  } 
 }
 
 #' Helper for the Clustering ensemble local search method.

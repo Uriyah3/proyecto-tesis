@@ -85,20 +85,11 @@ if (!is.null(opt$pls_rank_cutoff)) {
 neighborhood_matrix <- NULL
 if (!is.null(opt$neighborhood)) {
   if(opt$debug) message("Precalculating neighborhood_matrix")
-  plan(multicore)
-  options(mc.cores=opt$nbproc)
   
   # Save a bit of time precalculating neighborhood_matrix
   dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
   # Find genes that are close to one another
-  neighborhood_matrix <- future_sapply(gene_list, function(gene) {
-    neighborhood_genes <- dmatrix_combined[gene, , drop=FALSE]
-    apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < opt$neighborhood)] )
-  })
-  # Such a neighborhood matrix uses too much memory, just consider it as all genes are neighbors
-  if (length(unlist(neighborhood_matrix)) > length(gene_list) * (length(gene_list) - 1) *0.9) {
-    neighborhood_matrix <- gene_list
-  }
+  neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < opt$neighborhood)
   dmatrix_combined <- NULL
   invisible(gc())
 }

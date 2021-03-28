@@ -2,6 +2,7 @@
 library("optparse")
 library(future.apply)
 source('main.r')
+options(future.globals.maxSize= 2091289600) # 2GB
 
 option_list = list(
   make_option(c("--seed"), type = "integer",
@@ -95,12 +96,12 @@ if (!is.null(opt$neighborhood)) {
     apply(neighborhood_genes, 1, function(x) colnames(neighborhood_genes)[which(x > 0.000000 & x < opt$neighborhood)] )
   })
   dmatrix_combined <- NULL
-  gc(verbose=FALSE)
+  invisible(gc())
 }
 
 if (opt$debug) message("Starting metaheuristics evaluation...")
 
-params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, debug=opt$debug, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa), nbproc=opt$nbproc, neighborhood_matrix=neighborhood_matrix)
+params <- list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, num_clusters=opt$num_clusters, evaluations=opt$evaluations, population_size=opt$population, crossover_ratio=opt$crossover, crossover_prob=opt$crossover_prob, mutation_ratio=opt$mutation, tour_size=opt$tour_size, neighborhood = opt$neighborhood, local_search=local_search_algorithms[[opt$local_search]], ls_pos=opt$ls_pos, ls_budget=opt$ls_budget, debug=opt$debug, ls_params=list(acceptance_criteria_fn=get(opt$acc_fn), rank_cutoff=rank_cutoff, alfa=opt$alfa), neighborhood_matrix=neighborhood_matrix)
 
 results <- evaluator.metaheuristics(nsga2.custom, params, debug = opt$debug)
 

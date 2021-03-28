@@ -590,6 +590,11 @@ local.search.ensemble <- function(exploration_size, population, num_clusters, ge
   
   new_archive <- archive[1, 1:num_clusters, drop=FALSE]
   
+  # Cant apply ensemble if pareto front is only one solution.
+  if (nrow(new_archive) == 1) {
+    return(new_archive)
+  }
+  
   evaluations <- 0
   step <- 0
   row_name_id <- 0

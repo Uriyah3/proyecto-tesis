@@ -27,16 +27,16 @@
 
 # 1:                        2:                3:    4:                  5:
 # name                      switch            type  values              [conditions (using R syntax)]
-fitness_evaluations       "--evaluations "      i   (500, 10000)
+# fitness_evaluations       "--evaluations "      i   (500, 10000)
 population                "--population "       i   (20, 200)
 num_clusters              "--num_clusters "     i   (10, 20)
 crossover_ratio           "--crossover "        r   (0.50, 0.95)
 mutation_ratio            "--mutation "         r   (0.01, 0.20)
 tour_size                 "--tour_size "        i   (2, 8)
-neighborhood              "--neighborhood "     r   (0.20, 0.95)       | !is.null(local_search)
 local_search              "--local_search "     c   (NULL, pls, lmols, nmols, mosa, ensemble)
-local_search_budget       "--ls_budget "        r   (10.0, 95.0)   | !is.null(local_search)
-ls_pos                    "--ls_pos "           c   (1, 2, 3)     | !is.null(local_search)
+neighborhood              "--neighborhood "     r   (0.20, 0.95)       | local_search %in% c("pls", "lmols", "nmols", "mosa", "ensemble")
+local_search_budget       "--ls_budget "        r   (10.0, 95.0)   | local_search %in% c("pls", "lmols", "nmols", "mosa", "ensemble")
+ls_pos                    "--ls_pos "           c   (1, 2, 3)     | local_search %in% c("pls", "lmols", "nmols", "mosa", "ensemble")
 acceptance_criteria_fn    "--acc_fn "           c   (helper.dominates, helper.non.dominated) | local_search %in% c("pls", "mosa")
 pls_rank_cutoff           "--pls_rank_cutoff "   i   (1, 3)              | local_search == "pls"
 ce_rank_cutoff            "--ce_rank_cutoff "    i   (1, 2)              | local_search == "ensemble"

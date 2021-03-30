@@ -22,7 +22,7 @@ error() {
 }
 
 EXE="/home/DIINF/nmariangel/R/bin/Rscript"
-FIXED_PARAMS="--vanilla run_instance.r"
+FIXED_PARAMS="--vanilla run_instance.r --debug TRUE --evaluations 4000"
 
 CONFIG_ID=$1
 INSTANCE_ID=$2

@@ -7,9 +7,9 @@ source("file_utils.r")
 library(future)
 
 datasets <- list(
-  GSE45827 = list(
-    name = "Breast_GSE45827",
-    chip = "GPL570",
+  GSE89116 = list(
+    name = "Breast_GSE89116",
+    chip = "GPL6947",
     type = "evaluation",
     cancer = "Breast"
   ),
@@ -19,21 +19,21 @@ datasets <- list(
     type = "evaluation",
     cancer = "Renal"
   ),
-  GSE28497 = list(
-    name = "Leukemia_GSE28497",
-    chip = "GPL96",
-    type = "evaluation",
-    cancer = "Leukemia"
-  ),
-  GSE19804 = list(
-    name = "Lung_GSE19804",
+  GSE31189 = list(
+    name = "Bladder_GSE31189",
     chip = "GPL570",
     type = "evaluation",
-    cancer = "Lung"
+    cancer = "Bladder"
   ),
-  GSE6919_U95C = list(
-    name = "Prostate_GSE6919_U95C",
-    chip = "GPL93",
+  GSE50161 = list(
+    name = "Brain_GSE50161",
+    chip = "GPL570",
+    type = "evaluation",
+    cancer = "Brain"
+  ),
+  GSE6919_U95Av2 = list(
+    name = "Prostate_GSE6919_U95Av2",
+    chip = "GPL8300",
     type = "evaluation",
     cancer = "Prostate"
   ),
@@ -43,12 +43,30 @@ datasets <- list(
     type = "training",
     cancer = "Prostate"
   ),
-  GSE6919_U95Av2 = list(
-    name = "Prostate_GSE6919_U95Av2",
-    chip = "GPL8300",
+  GSE6919_U95C = list(
+    name = "Prostate_GSE6919_U95C",
+    chip = "GPL93",
     type = "training",
     cancer = "Prostate"
   ),
+  GSE28497 = list(
+    name = "Leukemia_GSE28497",
+    chip = "GPL96",
+    type = "training",
+    cancer = "Leukemia"
+  ),
+  # GSE45827 = list(
+  #   name = "Breast_GSE45827",
+  #   chip = "GPL570",
+  #   type = "evaluation",
+  #   cancer = "Breast"
+  # ),
+  # GSE19804 = list(
+  #   name = "Lung_GSE19804",
+  #   chip = "GPL570",
+  #   type = "evaluation",
+  #   cancer = "Lung"
+  # ),
   GSE22405 = list(
     name = "Liver_GSE22405",
     chip = "GPL96",
@@ -61,30 +79,18 @@ datasets <- list(
     type = "training",
     cancer = "Liver"
   ),
-  GSE31189 = list(
-    name = "Bladder_GSE31189",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Bladder"
-  ),
   GSE6008 = list(
     name = "Ovary_GSE6008",
     chip = "GPL96",
     type = "training",
     cancer = "Ovary"
   ),
-  GSE50161 = list(
-    name = "Brain_GSE50161",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Brain"
-  ),
-  GSE15824 = list(
-    name = "Brain_GSE15824",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Brain"
-  ),
+  # GSE15824 = list(
+  #   name = "Brain_GSE15824",
+  #   chip = "GPL570",
+  #   type = "training",
+  #   cancer = "Brain"
+  # ),
   GSE44861 = list(
     name = "Colorectal_GSE44861",
     chip = "GPL3921",
@@ -103,24 +109,18 @@ datasets <- list(
     type = "training",
     cancer = "Breast"
   ),
-  GSE7904 = list(
-    name = "Breast_GSE7904",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Breast"
-  ),
-  GSE89116 = list(
-    name = "Breast_GSE89116",
-    chip = "GPL6947",
-    type = "training",
-    cancer = "Breast"
-  ),
-  GSE16515 = list(
-    name = "Pancreatic_GSE16515",
-    chip = "GPL570",
-    type = "training",
-    cancer = "Pancreatic"
-  ),
+  # GSE7904 = list(
+  #   name = "Breast_GSE7904",
+  #   chip = "GPL570",
+  #   type = "training",
+  #   cancer = "Breast"
+  # ),
+  # GSE16515 = list(
+  #   name = "Pancreatic_GSE16515",
+  #   chip = "GPL570",
+  #   type = "training",
+  #   cancer = "Pancreatic"
+  # ),
   GSE9476 = list(
     name = "Leukemia_GSE9476",
     chip = "GPL96",

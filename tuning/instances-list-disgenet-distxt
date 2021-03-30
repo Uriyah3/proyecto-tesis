@@ -1,0 +1,19 @@
+## This is an example of specifying instances with a file.
+
+# Each line is an instance relative to trainInstancesDir
+# (see scenario.txt.tmpl) and an optional sequence of instance-specific
+# parameters that will be passed to target-runnerx when invoked on that
+# instance.
+
+# Empty lines and comments are ignored.
+
+Prostate_GSE6919_U95B.csv.gz --biological_source disgenet_dis
+Prostate_GSE6919_U95C.csv.gz --biological_source disgenet_dis
+Leukemia_GSE28497.csv.gz --biological_source disgenet_dis
+Liver_GSE22405.csv.gz --biological_source disgenet_dis
+Liver_GSE60502.csv.gz --biological_source disgenet_dis
+Ovary_GSE6008.csv.gz --biological_source disgenet_dis
+Colorectal_GSE44861.csv.gz --biological_source disgenet_dis
+Colorectal_GSE77953.csv.gz --biological_source disgenet_dis
+Breast_GSE10797.csv.gz --biological_source disgenet_dis
+Leukemia_GSE9476.csv.gz --biological_source disgenet_dis

@@ -188,7 +188,7 @@ helper.mosa.probability <- function(objective_exp, objective_bio, solution, temp
 #' @return archive of solutions with the new solutions added as unexplored after
 #' cutting off all solutions with a bad rank.
 #' 
-helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_clusters, ordering_fn, rank_cutoff) {
+helper.cut.and.join.archive <- function(archive, add_to_archive, gene_list, num_clusters, ordering_fn, rank_cutoff, dmatrix_expression, dmatrix_biological) {
   explored <- archive[ , "explored", drop=FALSE]
   new_archive <- helper.randomize.duplicates( rbind( archive[, 1:num_clusters], add_to_archive), gene_list, num_clusters )
   archive <- ordering_fn(new_archive, dmatrix_expression, dmatrix_biological)
@@ -313,7 +313,8 @@ local.search.pareto.local.search <- function(exploration_size, population, num_c
       archive <- helper.cut.and.join.archive(
         archive, 
         medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:(num_clusters) ],
-        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff
+        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff,
+        dmatrix_expression = dmatrix_expression, dmatrix_biological = dmatrix_biological
       )
     }
     
@@ -533,7 +534,8 @@ local.search.mosa <- function(exploration_size, population, num_clusters, gene_l
       archive <- helper.cut.and.join.archive(
         archive, 
         medoid_neighborhood[ medoid_neighborhood$add == TRUE, 1:num_clusters ],
-        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff 
+        gene_list, num_clusters, ordering_fn, rank_cutoff = rank_cutoff,
+        dmatrix_expression = dmatrix_expression, dmatrix_biological = dmatrix_biological
       )
     }
     

@@ -161,6 +161,27 @@ for (int j = 1; j < nCols; j++){
 return y;
 ', plugin="Rcpp")
 
+clusteringCalc <- cxxfunction(signature(x = "data.frame"), body = '
+DataFrame xcpp(x);
+int nRows = xcpp.nrow();
+int nCols = xcpp.size();
+CharacterVector rownames = xcpp[0];
+CharacterVector y(nCols-1);
+for (int j = 1; j < nCols; j++){
+    NumericVector column = xcpp[j];
+    double minCol = 2;
+    int minIndex = 0;
+    for (int i = 0; i < nRows; i++){
+      if (column[i] < minCol) {
+        minCol = column[i];
+        minIndex = i;
+      }
+    }
+    y[j-1] = rownames[minIndex];
+}
+return y;
+', plugin="Rcpp")
+
 
 fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   if(is.character(type)) {
@@ -184,10 +205,7 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   Rm <- Rmcalc(distance_to_medoids)
   # Rm <- sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } ) # optimize this line
   
-  temp <- distance_to_medoids[, -1]
-  DT <- data.table(value=unlist(temp, use.names=FALSE), colid = rep(1:ncol(temp), each=nrow(temp)), rowid = distance_to_medoids$rn)
-  setkey(DT, colid, value)
-  clustering <- (DT[J(unique(colid)), rowid, mult="first"])
+  clustering <- clusteringCalc(distance_to_medoids)
   # Sacar el Jk de cada cluster
   # clustering <- sapply(distance_to_medoids, function(x) rownames(distance_to_medoids)[which.min(x)]) # The most costly line of this code
   Jk <- as.data.frame(cbind(Rm, clustering), stringsAsFactors = FALSE)

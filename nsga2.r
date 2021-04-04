@@ -444,7 +444,7 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
     # Euclidean distance matrix
     dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
     # Find genes that are close to one another
-    neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < opt$neighborhood)
+    neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < neighborhood)
     dmatrix_combined <- NULL
     invisible(gc())
   }

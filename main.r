@@ -5,6 +5,8 @@ source("globals.r")
 source("evaluator.r")
 source("file_utils.r")
 library(future)
+library(profvis)
+options(bitmapType='cairo')
 
 datasets <- list(
   GSE89116 = list(
@@ -311,4 +313,17 @@ compare.gpl.platforms <- function() {
   
   saveRDS(chips_comparison, 'cache/chips_entrez_gene_id_jaccard.rda')
   chips_comparison
+}
+
+profiler <- function(fn)
+{
+  start.time <- Sys.time()
+  for (i in 1:1000) {
+    fn()
+  }
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  
+  print(time.taken)
+  print(paste("Average execution time:", time.taken / 1000))
 }

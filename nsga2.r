@@ -2,6 +2,8 @@ library(nsga2R)
 library(hash)
 library(ggplot2)
 library(stringr)
+library(data.table)
+library(inline)
 
 source("local_search.r")
 source("globals.r")
@@ -129,6 +131,37 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
 #   return( XB )
 # }
 
+Rmcalc <- cxxfunction(signature(x = "data.frame"), body = '
+DataFrame xcpp(x);
+int nRows = xcpp.nrow();
+int nCols = xcpp.size();
+NumericVector y(nCols-1);
+for (int j = 1; j < nCols; j++){
+    NumericVector column = xcpp[j];
+    double minCol = 2;
+    double secondMinCol = 3;
+    for (int i = 0; i < nRows; i++){
+      if (column[i] < minCol) {
+        secondMinCol = minCol;
+        minCol = column[i];
+      }
+      else if (column[i] < secondMinCol && column[i] != minCol) {
+        secondMinCol = column[i];
+      }
+      
+      //Rprintf("%f \\n", column[i]);
+    }
+    //Rprintf("%f %f \\n", minCol, secondMinCol);
+    if (secondMinCol > 0.000000) {
+      y[j-1] = minCol / secondMinCol;
+    } else {
+      y[j-1] = 1.0;
+    }
+}
+return y;
+', plugin="Rcpp")
+
+
 fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   if(is.character(type)) {
     # Revisar si se ha calculado esta solución con esta matriz anteriormente
@@ -142,13 +175,21 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   # Calcular distancia mínima de cada gene a su cluster.
   elements <- nrow( gene_dmatrix )
   medoids <- length( cluster_solution )
-  distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ] # optimize this line
+  # gene_dmatrix <- data.table(gene_dmatrix, keep.rownames=TRUE)
+  distance_to_medoids <- gene_dmatrix[gene_dmatrix$rn %in% cluster_solution]
+  # distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ] # optimize this line
   
   # Promediar distancia de un gen a su cluster con la minima distancia a otro cluster
-  Rm <- sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } ) # optimize this line
   
+  Rm <- Rmcalc(distance_to_medoids)
+  # Rm <- sapply(distance_to_medoids, function(x) {if(length(x[!x %in% min(x)]) > 0) { min(x) / min(x[!x %in% min(x)])} else { 1.0 } } ) # optimize this line
+  
+  temp <- distance_to_medoids[, -1]
+  DT <- data.table(value=unlist(temp, use.names=FALSE), colid = rep(1:ncol(temp), each=nrow(temp)), rowid = distance_to_medoids$rn)
+  setkey(DT, colid, value)
+  clustering <- (DT[J(unique(colid)), rowid, mult="first"])
   # Sacar el Jk de cada cluster
-  clustering <- apply(distance_to_medoids, 2, function(x) rownames(distance_to_medoids)[which.min(x)]) # The most costly line of this code
+  # clustering <- sapply(distance_to_medoids, function(x) rownames(distance_to_medoids)[which.min(x)]) # The most costly line of this code
   Jk <- as.data.frame(cbind(Rm, clustering), stringsAsFactors = FALSE)
   Jk <- transform(Jk, Rm = as.numeric(Rm))
   elements_k <- aggregate(Rm ~ clustering, Jk, length)
@@ -345,15 +386,12 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
   elements <- nrow( dmatrix_expression )
   for( i in 1:nrow(population) ) {
     cluster_solution <- population[i, 1:num_clusters]
-    medoids <- length( cluster_solution )
-    distance_to_medoids <- dmatrix_expression[rownames(dmatrix_expression) %in% cluster_solution, ]
+    distance_to_medoids <- dmatrix_expression[dmatrix_expression$rn %in% cluster_solution]
     
-    medoid_index <- integer(medoids)  
-    for(medoid in 1:medoids) {
-      medoid_index[medoid] = grep( paste("^", cluster_solution[medoid], "$", sep=""), colnames(dmatrix_expression) )
-    }
+    DT <- data.table(value=unlist(distance_to_medoids, use.names=FALSE), colid = rep(1:ncol(distance_to_medoids), each=nrow(distance_to_medoids)), rowid = 1:nrow(distance_to_medoids))
+    setkey(DT, colid, value)
+    clustering <- (DT[J(unique(colid)), rowid, mult="first"])[-1]
     
-    clustering <- apply(distance_to_medoids, 2, function(x) which.min(x))
     frontier_clustering[[i]] <- as.vector(clustering)
   }
   
@@ -398,12 +436,26 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   if( !is.null(local_search) && !(local_search %in% local_search_algorithms) ) {
     stop( paste("The local search algorithm must be one of the following:", paste(local_search_algorithms, collapse=", ")) )
   }
-  
-  # Order matrices just in case
-  dmatrix_expression <- helper.order.matrix(dmatrix_expression)
-  dmatrix_biological <- helper.order.matrix(dmatrix_biological)
-  
   gene_list <- colnames(dmatrix_expression)
+  if( !is.null(local_search) && is.null(neighborhood_matrix) ) {
+    if (debug) message("NSGA2: Precalculating neighborhood_matrix")
+    # Sum distance matrix
+    #dmatrix_combined <- dmatrix_expression + dmatrix_biological
+    # Euclidean distance matrix
+    dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
+    # Find genes that are close to one another
+    neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < opt$neighborhood)
+    dmatrix_combined <- NULL
+    invisible(gc())
+  }
+  
+  # Order matrices just in case, then transform into data table
+  dmatrix_expression <- helper.order.matrix(dmatrix_expression)
+  setDT(dmatrix_expression, keep.rownames = TRUE)
+  
+  dmatrix_biological <- helper.order.matrix(dmatrix_biological)
+  setDT(dmatrix_biological, keep.rownames = TRUE)
+  
   
   # Debug counters
   mutation_counter <<- 0
@@ -417,17 +469,6 @@ nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5,
   if(exists("fitness_hash")) rm("fitness_hash", envir = globalenv())
   fitness_hash <<- hash()
   
-  if( !is.null(local_search) && is.null(neighborhood_matrix) ) {
-    if (debug) message("NSGA2: Precalculating neighborhood_matrix")
-    # Sum distance matrix
-    #dmatrix_combined <- dmatrix_expression + dmatrix_biological
-    # Euclidean distance matrix
-    dmatrix_combined <- sqrt(dmatrix_expression**2 + dmatrix_biological**2)
-    # Find genes that are close to one another
-    neighborhood_matrix <- (dmatrix_combined > 0.0000 & dmatrix_combined < opt$neighborhood)
-    dmatrix_combined <- NULL
-    invisible(gc())
-  }
 
   # Divide budget size by 2 to take into account that each solution is evaluated twice
   original_evaluations <- evaluations

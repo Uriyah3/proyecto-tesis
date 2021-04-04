@@ -208,7 +208,7 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   clustering <- clusteringCalc(distance_to_medoids)
   # Sacar el Jk de cada cluster
   # clustering <- sapply(distance_to_medoids, function(x) rownames(distance_to_medoids)[which.min(x)]) # The most costly line of this code
-  Jk <- as.data.frame(cbind(Rm, clustering), stringsAsFactors = FALSE)
+  Jk <- data.table(Rm, clustering)
   Jk <- transform(Jk, Rm = as.numeric(Rm))
   elements_k <- aggregate(Rm ~ clustering, Jk, length)
   Jk <- aggregate(Rm ~ clustering, Jk, mean)

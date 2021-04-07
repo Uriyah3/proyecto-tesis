@@ -3,10 +3,11 @@ library(hash)
 library(ggplot2)
 library(stringr)
 library(data.table)
-library(inline)
+library(Rcpp)
 
 source("local_search.r")
 source("globals.r")
+sourceCpp("performance.cpp")
 
 # Create counters to test algorithm's performance
 fitness_counter <<- 0
@@ -130,58 +131,6 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
 # 
 #   return( XB )
 # }
-
-Rmcalc <- cxxfunction(signature(x = "data.frame"), body = '
-DataFrame xcpp(x);
-int nRows = xcpp.nrow();
-int nCols = xcpp.size();
-NumericVector y(nCols-1);
-for (int j = 1; j < nCols; j++){
-    NumericVector column = xcpp[j];
-    double minCol = 2;
-    double secondMinCol = 3;
-    for (int i = 0; i < nRows; i++){
-      if (column[i] < minCol) {
-        secondMinCol = minCol;
-        minCol = column[i];
-      }
-      else if (column[i] < secondMinCol && column[i] != minCol) {
-        secondMinCol = column[i];
-      }
-      
-      //Rprintf("%f \\n", column[i]);
-    }
-    //Rprintf("%f %f \\n", minCol, secondMinCol);
-    if (secondMinCol > 0.000000) {
-      y[j-1] = minCol / secondMinCol;
-    } else {
-      y[j-1] = 1.0;
-    }
-}
-return y;
-', plugin="Rcpp")
-
-clusteringCalc <- cxxfunction(signature(x = "data.frame"), body = '
-DataFrame xcpp(x);
-int nRows = xcpp.nrow();
-int nCols = xcpp.size();
-CharacterVector rownames = xcpp[0];
-CharacterVector y(nCols-1);
-for (int j = 1; j < nCols; j++){
-    NumericVector column = xcpp[j];
-    double minCol = 2;
-    int minIndex = 0;
-    for (int i = 0; i < nRows; i++){
-      if (column[i] < minCol) {
-        minCol = column[i];
-        minIndex = i;
-      }
-    }
-    y[j-1] = rownames[minIndex];
-}
-return y;
-', plugin="Rcpp")
-
 
 fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   if(is.character(type)) {

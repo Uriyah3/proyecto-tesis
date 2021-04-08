@@ -315,15 +315,33 @@ compare.gpl.platforms <- function() {
   chips_comparison
 }
 
-profiler <- function(fn)
+david.test <- function(debug = TRUE)
+{
+  dataset <- datasets$GSE6919_U95C
+  dmatrix_expression = expression.matrix(t(data), dataset=dataset$name)
+  dmatrix_biological = biological.matrix(gene_list, biological_databases[['go']], dataset=dataset$name)
+  
+  results_random <- nsga2.custom(dmatrix_expression, dmatrix_biological, evaluations=10, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, debug=TRUE)
+  results_processed <- results_processed <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, local_search = local_search_algorithms[['lmols']], neighborhood = 0.3214, ls_budget = 44.5125, ls_pos = 2, debug = TRUE, evaluations=5000)
+  
+  metrics_random <- evaluator.multiobjective.clustering(results_random, dmatrix_expression, which.x=which.median, debug=debug)
+  metrics_processed <- evaluator.multiobjective.clustering(results_processed, dmatrix_expression, which.x=which.median, debug=debug)
+  
+  return(list(
+    random = metrics_random,
+    processed = metrics_processed
+  ))
+}
+
+profiler <- function(fn, times=1000)
 {
   start.time <- Sys.time()
-  for (i in 1:1000) {
+  for (i in 1:times) {
     fn()
   }
   end.time <- Sys.time()
   time.taken <- end.time - start.time
   
   print(time.taken)
-  print(paste("Average execution time:", time.taken / 1000))
+  print(paste("Average execution time:", time.taken / times))
 }

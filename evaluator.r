@@ -8,13 +8,22 @@ helper.normalize <- function(data) {
   return( (data - min(data)) / (max(data) - min(data)) )
 }
 
-evaluator.multiobjective.clustering <- function( results, dmatrix ) {
+which.median = function(x) {
+  if (length(x) %% 2 != 0) {
+    which(x == median(x))
+  } else if (length(x) %% 2 == 0) {
+    a = sort(x)[c(length(x)/2, length(x)/2+1)]
+    c(which(x == a[1]), which(x == a[2]))
+  }
+}
+
+evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max ) {
   
-  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix )
-  hypervolume_results <- evaluator.hypervolume( results$population )
+  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix , debug)
+  hypervolume_results <- evaluator.hypervolume( results$population, debug )
   
-  best_sil <- which.max(silhouette_results$silhouette)
-  biology_results <- evaluator.biological.significance( results$clustering[[best_sil]], colnames(dmatrix) )
+  best_sil <- which.x(silhouette_results$silhouette)
+  biology_results <- evaluator.biological.significance( results$clustering[[best_sil]], colnames(dmatrix), debug )
   
   metrics <- list(
     silhouette = silhouette_results,
@@ -24,9 +33,9 @@ evaluator.multiobjective.clustering <- function( results, dmatrix ) {
   return( metrics )
 }
 
-evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix ) {
-  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix )
-  hypervolume_results <- evaluator.hypervolume( results$population )
+evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE ) {
+  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug )
+  hypervolume_results <- evaluator.hypervolume( results$population, debug )
   
   metrics <- list(
     silhouette = silhouette_results,
@@ -35,7 +44,7 @@ evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix ) {
   return( metrics )
 }
 
-evaluator.hypervolume <- function( population ) {
+evaluator.hypervolume <- function( population, debug = FALSE ) {
   num_clusters <- ncol(population) - 4
   
   pareto_points <- as.matrix( population[ , (num_clusters+1):(num_clusters+2) ] )
@@ -54,7 +63,7 @@ evaluator.hypervolume <- function( population ) {
   return( metrics )
 }
 
-evaluator.silhouette <- function( clustering, dmatrix ) {
+evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE ) {
   solution_count <- length(clustering)
   
   silhouette_indices = double(solution_count)
@@ -73,7 +82,7 @@ evaluator.silhouette <- function( clustering, dmatrix ) {
   return( metrics )
 }
 
-evaluator.biological.significance <- function( clustering, full_gene_list ) {
+evaluator.biological.significance <- function( clustering, full_gene_list, debug = FALSE ) {
   # Agregar los nombres de los genes a la cabecera
   clustering <- as.data.frame(t(clustering))
   colnames(clustering) <- full_gene_list
@@ -84,22 +93,25 @@ evaluator.biological.significance <- function( clustering, full_gene_list ) {
   for (cluster in 1:num_clusters) {
     gene_list <- colnames(clustering[ , clustering == cluster ])
     
-    results[[cluster]] <- evaluator.biological.anotate.list( gene_list )
+    results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
   }
   
   return( results )
 }
 
-evaluator.biological.anotate.list <- function( gene_list ) {
+evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   #https://david.ncifcrf.gov/webservice/services/DAVIDWebService/authenticate?args0=nicolas.mariangel@usach.cl
   david <- DAVIDWebService$new(email='nicolas.mariangel@usach.cl', url='https://david.ncifcrf.gov/webservice/services/DAVIDWebService')
   # Se cae a veces con el siguiente error: 
   # [INFO] Unable to sendViaPost to url[https://david.ncifcrf.gov/webservice/services/DAVIDWebService]
   # java.net.SocketTimeoutException: Read timed out
-  # Considerar que tambiÃ©n tira este error cuando la lista de genes es > 3000
+  # Considerar que también tira este error cuando la lista de genes es > 3000
   setTimeOut(david, 120000)
   
   if (length(gene_list) >= 3000) {
+    if (debug) {
+      message(paste("No se puede utilizar DAVID con esta lista de genes, dado que son", length(gene_list), "genes"))
+    }
     return(
       list(
         cluster_count = 100,
@@ -112,13 +124,16 @@ evaluator.biological.anotate.list <- function( gene_list ) {
   }
   
   
-  david$addList(gene_list, "ENTREZ_GENE_ID", listName = "Prueba de anotaciÃ³n chart", listType = "Gene")
+  david$addList(gene_list, "ENTREZ_GENE_ID", listName = paste("Prueba de anotacion chart", sample(1:10000, 1)), listType = "Gene")
   davidCluster <- david$getClusterReport()
   
   clusters <- davidCluster@cluster
   enrichment <- sapply(clusters, `[[`, 'EnrichmentScore')
   
   if (length(enrichment) == 0) {
+    if (debug) {
+      message("DAVID falló en encontrar enrichment o se cayó la biblioteca")
+    }
     metrics <- list(
       cluster_count = 100,
       max_enrichment = 0,
@@ -169,7 +184,7 @@ evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator =
     start.time <- Sys.time()
     
     metaheuristic_results <- do.call(metaheuristic, meta_params)
-    iteration_results = run_evaluator(metaheuristic_results, meta_params$dmatrix_expression)
+    iteration_results = run_evaluator(metaheuristic_results, meta_params$dmatrix_expression, debug)
     
     end.time <- Sys.time()
     time.taken <- end.time - start.time
@@ -193,6 +208,8 @@ evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator =
 
 #results <- evaluator.metaheuristics(nsga2.custom, list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, population_size = 2, generations = 1, num_clusters = 3, ls_pos=NULL, local_search = NULL, debug=TRUE))
 #results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 10, num_clusters = 5, ls_pos=NULL, local_search = NULL, debug=TRUE)
+
+
 
 evaluator.friedman <- function() {
 }

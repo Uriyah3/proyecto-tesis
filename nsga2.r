@@ -388,7 +388,7 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 #' @return List. population and clustering. Approximation to the Pareto Front and cluster
 #' to which each gene belongs to in each solution in the Pareto Front respectively.
 #' 
-nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=NULL, debug=FALSE, message_iteration=FALSE, neighborhood_matrix=NULL) {
+nsga2.custom <- function(dmatrix_expression, dmatrix_biological, num_clusters=5, evaluations=1000, population_size=20, crossover_ratio=0.60, crossover_prob=1.0, mutation_ratio=0.10, tour_size=2, neighborhood = 0.45, local_search=NULL, ls_pos=FALSE, ls_budget=60.0, ls_params=list(), debug=FALSE, message_iteration=FALSE, neighborhood_matrix=NULL) {
   
   # Sanity checks
   if( nrow( dmatrix_expression ) != ncol( dmatrix_expression ) || nrow( dmatrix_biological ) != ncol( dmatrix_biological ) ) {

@@ -8,6 +8,7 @@ helper.normalize <- function(data) {
   return( (data - min(data)) / (max(data) - min(data)) )
 }
 
+# https://stackoverflow.com/questions/10256503/function-for-median-similar-to-which-max-and-which-min-extracting-median-r
 which.median = function(x) {
   if (length(x) %% 2 != 0) {
     which(x == median(x))
@@ -19,16 +20,22 @@ which.median = function(x) {
 
 evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max ) {
   
-  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix , debug)
+  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug)
   hypervolume_results <- evaluator.hypervolume( results$population, debug )
   
-  best_sil <- which.x(silhouette_results$silhouette)
-  biology_results <- evaluator.biological.significance( results$clustering[[best_sil]], colnames(dmatrix), debug )
+  cond_sil <- which.x(silhouette_results$silhouette)[1]
+  if (debug) {
+    message(paste("Se analiza biologicamente solucion con silueta =", silhouette_results$silhouette[[cond_sil]]))
+  }
+  biology_results <- evaluator.biological.significance( results$clustering[[cond_sil]], colnames(dmatrix), debug )
+  biology_summary <- unlist(biology_results)
+  biology_summary <- c(by(biology_summary, names(biology_summary), mean, na.rm = TRUE))
   
   metrics <- list(
     silhouette = silhouette_results,
     hypervolume = hypervolume_results,
-    biological = biology_results
+    biological = biology_results,
+    biological_summary = biology_summary
   )
   return( metrics )
 }
@@ -91,7 +98,11 @@ evaluator.biological.significance <- function( clustering, full_gene_list, debug
   
   results <- list()
   for (cluster in 1:num_clusters) {
-    gene_list <- colnames(clustering[ , clustering == cluster ])
+    gene_list <- colnames(clustering[ , clustering == cluster, drop=FALSE ])
+    
+    if (debug) {
+      message(paste("Procesando lista#", cluster, " con ", length(gene_list), " genes...", sep=""))
+    }
     
     results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
   }
@@ -105,16 +116,17 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   # Se cae a veces con el siguiente error: 
   # [INFO] Unable to sendViaPost to url[https://david.ncifcrf.gov/webservice/services/DAVIDWebService]
   # java.net.SocketTimeoutException: Read timed out
-  # Considerar que también tira este error cuando la lista de genes es > 3000
-  setTimeOut(david, 120000)
+  # Considerar que tambiÃ©n tira este error cuando la lista de genes es > 3000
+  setTimeOut(david, 150000)
   
-  if (length(gene_list) >= 3000) {
+  if (length(gene_list) >= 3000 || length(gene_list) <= 2) {
     if (debug) {
       message(paste("No se puede utilizar DAVID con esta lista de genes, dado que son", length(gene_list), "genes"))
+      message(genes)
     }
     return(
       list(
-        cluster_count = 100,
+        cluster_count = min(length(gene_list), 100),
         max_enrichment = 0,
         mean_enrichment = 0,
         min_enrichment = 0,
@@ -125,6 +137,7 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   
   
   david$addList(gene_list, "ENTREZ_GENE_ID", listName = paste("Prueba de anotacion chart", sample(1:10000, 1)), listType = "Gene")
+  david$setAnnotationCategories(c("ENTREZ_GENE_ID", "BIOCARTA", "BBID", "BIOGRID_INTERACTION", "CGAP_EST_QUARTILE", "CGAP_SAGE_QUARTILE", "CHROMOSOME", "ENSEMBL_GENE_ID", "ENTREZ_GENE_SUMMARY", "GAD_DISEASE", "GAD_DISEASE_CLASS", "GENERIF_SUMMARY", "GNF_U133A_QUARTILE", "GOTERM_BP_ALL", "GOTERM_BP_DIRECT", "GOTERM_CC_ALL", "GOTERM_CC_DIRECT",  "GOTERM_MF_ALL", "GOTERM_MF_DIRECT", "HIV_INTERACTION", "HIV_INTERACTION_CATEGORY", "HIV_INTERACTION_PUBMED_ID", "KEGG_PATHWAY", "MINT", "OMIM_DISEASE", "PFAM", "PIR_SEQ_FEATURE", "PIR_SUMMARY", "PIR_SUPERFAMILY", "PRINTS", "PRODOM", "PROSITE", "PUBMED_ID", "REACTOME_PATHWAY", "SMART", "SP_COMMENT", "SP_COMMENT_TYPE", "SUPFAM", "TIGRFAMS", "UCSC_TFBS", "UNIGENE_EST_QUARTILE", "UP_KEYWORDS", "UP_SEQ_FEATURE", "UP_TISSUE"))
   davidCluster <- david$getClusterReport()
   
   clusters <- davidCluster@cluster
@@ -132,10 +145,10 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   
   if (length(enrichment) == 0) {
     if (debug) {
-      message("DAVID falló en encontrar enrichment o se cayó la biblioteca")
+      message("DAVID fallÃ³ en encontrar enrichment o se cayÃ³ la biblioteca")
     }
     metrics <- list(
-      cluster_count = 100,
+      cluster_count = min(100, length(gene_list)),
       max_enrichment = 0,
       mean_enrichment = 0,
       min_enrichment = 0,

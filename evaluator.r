@@ -122,7 +122,9 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   if (length(gene_list) >= 3000 || length(gene_list) <= 2) {
     if (debug) {
       message(paste("No se puede utilizar DAVID con esta lista de genes, dado que son", length(gene_list), "genes"))
-      message(genes)
+      if (length(gene_list) <= 2) {
+        message(paste0(gene_list, collapse=","))
+      }
     }
     return(
       list(

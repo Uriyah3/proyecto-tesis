@@ -26,7 +26,7 @@ helper.generate.neighborhood <- function(exploration_size, num_clusters, solutio
   })) ]
   
   if (debug) message( "The following genes have neighbors" )
-  if (debug) message( genes_with_neighbors )
+  if (debug) message( paste0(genes_with_neighbors, collapse=",") )
   for(medoid_generated in 1:nrow(medoid_neighborhood)) {
     medoid <- solution
     

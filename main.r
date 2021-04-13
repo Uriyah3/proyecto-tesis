@@ -444,3 +444,18 @@ profiler <- function(fn, times=1000)
   print(time.taken)
   print(paste("Average execution time:", time.taken / times))
 }
+
+library(moc.gapbk)
+
+moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go') {
+  dataset <- datasets[[dataset_key]]
+  
+  dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
+  dmatrix_biological = biological.matrix(NULL, biological_databases[[bio]], dataset=dataset$name)
+  
+  message(paste("Running moc.gapbk over dataset:", dataset_key, bio))
+  results <- moc.gabk(dmatrix_expression, dmatrix_biological, 10, local_search=FALSE, generation=50, pop_size=20)
+  saveRDS(results, str_interp("cache/moc_gapbk_renal${dataset_key}_${bio}_results_pop20_g50_results.rds"))
+  metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
+  saveRDS(metrics, str_interp("cache/moc_gapbk_renal${dataset_key}_${bio}_results_pop20_g50_metrics.rds"))
+}

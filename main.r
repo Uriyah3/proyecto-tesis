@@ -337,7 +337,7 @@ bio.test <- function(debug = TRUE)
 
 best_params <- list(
   go = list(
-    evaluations=400,
+    evaluations=4000,
     population_size=83,
     num_clusters=10,
     crossover_ratio=0.5710,
@@ -349,7 +349,7 @@ best_params <- list(
     ls_pos=2
   ),
   string = list(
-    evaluations=400,
+    evaluations=4000,
     population_size=74,
     num_clusters=11,
     crossover_ratio=0.6820,
@@ -365,7 +365,7 @@ best_params <- list(
     )
   ),
   kegg = list(
-    evaluations=400,
+    evaluations=4000,
     population_size=40,
     num_clusters=12,
     crossover_ratio=0.7950,
@@ -377,7 +377,7 @@ best_params <- list(
     ls_pos=2
   ),
   disgenet_dis = list(
-    evaluations=400,
+    evaluations=4000,
     population_size=61,
     num_clusters=10,
     crossover_ratio=0.9372,
@@ -394,7 +394,7 @@ best_params <- list(
     
   ),
   base = list(
-    evaluations=400,
+    evaluations=4000,
     population_size=40,
     num_clusters=12,
     crossover_ratio=0.70,

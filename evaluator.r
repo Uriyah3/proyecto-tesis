@@ -140,7 +140,7 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   # [INFO] Unable to sendViaPost to url[https://david.ncifcrf.gov/webservice/services/DAVIDWebService]
   # java.net.SocketTimeoutException: Read timed out
   # Considerar que también tira este error cuando la lista de genes es > 3000
-  setTimeOut(david, 300000)
+  setTimeOut(david, 1500000)
   
   if (length(gene_list) >= 3000 || length(gene_list) <= 2) {
     if (debug) {

@@ -315,23 +315,122 @@ compare.gpl.platforms <- function() {
   chips_comparison
 }
 
-david.test <- function(debug = TRUE)
+bio.test <- function(debug = TRUE)
 {
   dataset <- datasets$GSE6919_U95C
   dmatrix_expression = expression.matrix(t(data), dataset=dataset$name)
-  dmatrix_biological = biological.matrix(gene_list, biological_databases[['go']], dataset=dataset$name)
+  dmatrix_biological = biological.matrix(gene_list, biological_databases[['kegg']], dataset=dataset$name)
   
-  results_random <- nsga2.custom(dmatrix_expression, dmatrix_biological, evaluations=10, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, debug=TRUE)
-  results_processed <- results_processed <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, local_search = local_search_algorithms[['lmols']], neighborhood = 0.3214, ls_budget = 44.5125, ls_pos = 2, debug = TRUE, evaluations=5000)
+  results_processed <- results_processed <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, local_search = local_search_algorithms[['lmols']], neighborhood = 0.3214, ls_budget = 44.5125, ls_pos = 2, debug = TRUE, evaluations=8000)
+  results_random <- nsga2.custom(dmatrix_expression, dmatrix_biological, evaluations=100, population_size = 40, num_clusters = 12, crossover_ratio = 0.7950, mutation_ratio = 0.0714, tour_size = 6, debug=TRUE)
   
-  metrics_random <- evaluator.multiobjective.clustering(results_random, dmatrix_expression, which.x=which.median, debug=debug)
-  metrics_processed <- evaluator.multiobjective.clustering(results_processed, dmatrix_expression, which.x=which.median, debug=debug)
+  metrics_processed <- evaluator.multiobjective.clustering.custom.bio(results_processed, dmatrix_expression, dataset$name, which.x=which.median, debug=debug)
+  metrics_random <- evaluator.multiobjective.clustering.custom.bio(results_random, dmatrix_expression, dataset$name, which.x=which.median, debug=debug)
   
   return(list(
+    res_random = results_random,
+    res_processed = results_processed,
     random = metrics_random,
     processed = metrics_processed
   ))
 }
+
+best_params <- list(
+  go = list(
+    evaluations=400,
+    population_size=83,
+    num_clusters=10,
+    crossover_ratio=0.5710,
+    mutation_ratio=0.1205,
+    tour_size=4,
+    local_search=local_search_algorithms$lmols,
+    neighborhood=0.6756,
+    ls_budget=51.21,
+    ls_pos=2
+  ),
+  string = list(
+    evaluations=400,
+    population_size=74,
+    num_clusters=11,
+    crossover_ratio=0.6820,
+    mutation_ratio=0.1498,
+    tour_size=6,
+    local_search=local_search_algorithms$pls,
+    neighborhood= 0.5099,
+    ls_budget= 65.45,
+    ls_pos=2,
+    ls_params = list(
+      acceptance_criteria_fn=helper.non.dominated,
+      rank_cutoff = 3
+    )
+  ),
+  kegg = list(
+    evaluations=400,
+    population_size=40,
+    num_clusters=12,
+    crossover_ratio=0.7950,
+    mutation_ratio=0.0714,
+    tour_size=6,
+    local_search=local_search_algorithms$lmols,
+    neighborhood=0.3214,
+    ls_budget=44.51,
+    ls_pos=2
+  ),
+  disgenet_dis = list(
+    evaluations=400,
+    population_size=61,
+    num_clusters=10,
+    crossover_ratio=0.9372,
+    mutation_ratio=0.1649,
+    tour_size=5,
+    local_search=local_search_algorithms$pls,
+    neighborhood=0.3809,
+    ls_budget=73.03,
+    ls_pos=2,
+    ls_params = list(
+      acceptance_criteria_fn=helper.non.dominated,
+      rank_cutoff = 1
+    )
+    
+  ),
+  base = list(
+    evaluations=400,
+    population_size=40,
+    num_clusters=12,
+    crossover_ratio=0.70,
+    mutation_ratio=0.07,
+    tour_size=2,
+    local_search=NULL
+  )
+)
+
+calculate.results <- function(datasets_to_process, debug=FALSE) {
+  for(process_dataset in datasets_to_process) {
+    dataset <- datasets[[process_dataset]]
+    for (type in names(best_params)) {
+      if (type == 'base') {
+        biological_source <- 'go'
+      } else {
+        biological_source <- type
+      }
+      
+      dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
+      dmatrix_biological = biological.matrix(gene_list, biological_databases[[biological_source]], dataset=dataset$name) 
+      if (debug) {
+        message(paste("Processing", dataset$name, type, '...'))
+      }
+      params <- best_params[[type]]
+      params$dmatrix_expression <- dmatrix_expression
+      params$dmatrix_biological <- dmatrix_biological
+      params$debug <- debug
+      
+      save.metaheuristic.results(dataset$name, type, nsga2.custom, params, runs = 13, debug = debug)
+    }
+  }
+}
+
+# calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
+# calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 
 profiler <- function(fn, times=1000)
 {

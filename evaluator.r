@@ -3,6 +3,7 @@ library(mco)
 library(cluster)
 library(stringr)
 library(RDAVIDWebService)
+library(stats)
 source("nsga2.r")
 
 helper.normalize <- function(data) {
@@ -19,7 +20,7 @@ which.median = function(x) {
   }
 }
 
-evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max, dataset_name=NULL ) {
+evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max, dataset_name=NULL, bio=NULL ) {
   
   silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug)
   hypervolume_results <- evaluator.hypervolume( results$population, debug )
@@ -28,7 +29,7 @@ evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE
   if (debug) {
     message(paste("Se analiza biologicamente solucion con silueta =", silhouette_results$silhouette[[cond_sil]]))
   }
-  biology_results <- evaluator.biological.significance( results$clustering[[cond_sil]], colnames(dmatrix), debug )
+  biology_results <- evaluator.biological.significance( results$clustering[[cond_sil]], colnames(dmatrix), dataset_name, bio, debug )
   biology_summary <- unlist(biology_results)
   biology_summary <- c(by(biology_summary, names(biology_summary), mean, na.rm = TRUE))
   
@@ -41,7 +42,7 @@ evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE
   return( metrics )
 }
 
-evaluator.multiobjective.clustering.custom.bio <- function( results, dmatrix_expression, dataset_name, debug=FALSE, which.x = which.max ) {
+evaluator.multiobjective.clustering.custom.bio <- function( results, dmatrix_expression, dataset_name, debug=FALSE, which.x = which.max, bio=NULL ) {
   bio_sources = list(
     go = "gene ontology",
     string = "STRING",
@@ -63,7 +64,7 @@ evaluator.multiobjective.clustering.custom.bio <- function( results, dmatrix_exp
   return(metrics)
 }
 
-evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE, dataset_name=NULL ) {
+evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL ) {
   silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug )
   hypervolume_results <- evaluator.hypervolume( results$population, debug )
   
@@ -112,7 +113,7 @@ evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE ) {
   return( metrics )
 }
 
-evaluator.biological.significance <- function( clustering, full_gene_list, debug = FALSE ) {
+evaluator.biological.significance <- function( clustering, full_gene_list, dataset_name=NULL, bio=NULL, debug = FALSE, id=NULL ) {
   # Agregar los nombres de los genes a la cabecera
   clustering <- as.data.frame(t(clustering))
   colnames(clustering) <- full_gene_list
@@ -124,10 +125,76 @@ evaluator.biological.significance <- function( clustering, full_gene_list, debug
     gene_list <- colnames(clustering[ , clustering == cluster, drop=FALSE ])
     
     if (debug) {
-      message(paste("Procesando lista#", cluster, " con ", length(gene_list), " genes...", sep=""))
+      message(paste("Procesando lista#", id, cluster, " con ", length(gene_list), " genes...", sep=""))
+    }
+    if(length(gene_list) <= 3) {
+      if (debug) {
+        message(paste("Saltando el listado 1-2 genes:",paste0(gene_list, collapse=",")))
+      }
+      next
     }
     
-    results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
+    # For evaluation purposes, if any cluster has more elements than the 3000 DAVID 
+    # limit. Apply kmeans over the genes and average the results
+    if (length(gene_list) >= 3000) {
+      if (!is.null(dataset_name) && !is.null(bio)) {
+        if (bio %in% names(biological_databases)) {
+          dmatrix <- biological.matrix(NULL, biological_databases[[bio]], dataset=dataset_name)  
+        } else {
+          dmatrix <- expression.matrix(NULL, dataset=dataset_name)
+        }
+        dmatrix <- dmatrix[rownames(dmatrix) %in% gene_list, colnames(dmatrix) %in% gene_list, drop=FALSE]
+        
+        intra_clustering <- kmeans(dmatrix, 5, iter.max=50, nstart=10)
+        
+        temp_results <- evaluator.biological.significance(intra_clustering$cluster, gene_list, dataset_name, bio, debug, id=paste(id,cluster,'.',sep=""))
+        enrichment <- unlist(lapply(temp_results, function(result) {
+          result$cluster_count <- NULL
+          return(unlist(result))
+        }))
+        results[[cluster]] <- list()
+        results[[cluster]]$cluster_count <- sum( unlist(lapply(temp_results, '[[', 'cluster_count')) )
+        results[[cluster]]$enrichment = enrichment
+        
+      } else {
+        if (debug) {
+          message(paste("No se puede utilizar DAVID con esta lista de genes, dado que son", length(gene_list), "genes"))
+        }
+        results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
+      }
+    } else {
+      results[[cluster]] <- NA
+      attempt <- 1
+      while( is.na(results[[cluster]]) && attempt <= 5 ) {
+        attempt <- attempt + 1
+        try(
+          results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
+        )
+      }
+    }
+    
+    if (!is.list(results[[cluster]]$enrichment) && is.na(results[[cluster]]$enrichment)) {
+      results[[cluster]] <- NULL
+      next
+    }
+    
+    if (is.null(id)) {
+      results[[cluster]]$max_enrichment <- max(results[[cluster]]$enrichment)
+      results[[cluster]]$mean_enrichment <- mean(results[[cluster]]$enrichment)
+      results[[cluster]]$min_enrichment <- min(results[[cluster]]$enrichment)
+      results[[cluster]]$sd_enrichment <- sd(results[[cluster]]$enrichment)
+    }
+  }
+  
+  if (is.null(id)) {
+    enrichment <- unlist(lapply(results, function(result) {
+      return(unlist(result$enrichment))
+    }))
+    results$cluster_count <- sum( unlist(lapply(results, '[[', 'cluster_count')) )
+    results$max_enrichment <- max(enrichment)
+    results$mean_enrichment <- mean(enrichment)
+    results$min_enrichment <- min(enrichment)
+    results$sd_enrichment <- sd(enrichment)
   }
   
   return( results )
@@ -142,22 +209,14 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   # Considerar que también tira este error cuando la lista de genes es > 3000
   setTimeOut(david, 1500000)
   
-  if (length(gene_list) >= 3000 || length(gene_list) <= 2) {
-    if (debug) {
-      message(paste("No se puede utilizar DAVID con esta lista de genes, dado que son", length(gene_list), "genes"))
-      if (length(gene_list) <= 2) {
-        message(paste0(gene_list, collapse=","))
-      }
-    }
+  if (length(gene_list) >= 3000) {
     return(
       list(
         cluster_count = min(length(gene_list), 100),
-        max_enrichment = 0,
-        mean_enrichment = 0,
-        min_enrichment = 0,
-        sd_enrichment = 0
+        enrichment = list(0)
       )
     )
+    
   }
   
   
@@ -170,22 +229,16 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   
   if (length(enrichment) == 0) {
     if (debug) {
-      message("DAVID falló en encontrar enrichment o se cayó la biblioteca")
+      message(paste("DAVID falló en encontrar enrichment o se cayó la biblioteca para la lista:", paste0(gene_list, collapse=', ')))
     }
     metrics <- list(
       cluster_count = min(100, length(gene_list)),
-      max_enrichment = 0,
-      mean_enrichment = 0,
-      min_enrichment = 0,
-      sd_enrichment = 0
+      enrichment = NA
     )
   } else {
     metrics <- list(
       cluster_count = length(clusters),
-      max_enrichment = max(enrichment),
-      mean_enrichment = mean(enrichment),
-      min_enrichment = min(enrichment),
-      sd_enrichment = sd(enrichment)
+      enrichment = enrichment
     )
   }
   
@@ -210,7 +263,7 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   #)
 }
 
-evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE, dataset_name = NULL) {
+evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE, dataset_name = NULL, bio=NULL) {
   
   results <- lapply( 1:runs, function(n) {
     if (debug) {
@@ -222,7 +275,7 @@ evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator =
     start.time <- Sys.time()
     
     metaheuristic_results <- do.call(metaheuristic, meta_params)
-    iteration_results = run_evaluator(metaheuristic_results, meta_params$dmatrix_expression, debug=debug, dataset_name=dataset_name)
+    iteration_results = run_evaluator(metaheuristic_results, meta_params$dmatrix_expression, debug=debug, dataset_name=dataset_name, bio=bio)
     
     end.time <- Sys.time()
     time.taken <- end.time - start.time
@@ -278,7 +331,7 @@ reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, ru
     
     filename <- build.saved.results.filename(dataset.name, identifier, n)
     iteration_results <- readRDS(filename)
-    results = run_evaluator(iteration_results$nsga, dmatrix_expression, debug=debug, dataset_name=dataset.name)
+    results = run_evaluator(iteration_results$nsga, dmatrix_expression, debug=debug, dataset_name=dataset.name, identifier)
     iteration_results$nsga <- NULL
     iteration_results <- c(results, iteration_results)
     

@@ -337,7 +337,7 @@ bio.test <- function(debug = TRUE)
 
 best_params <- list(
   go = list(
-    evaluations=4000,
+    evaluations=10000,
     population_size=83,
     num_clusters=10,
     crossover_ratio=0.5710,
@@ -349,7 +349,7 @@ best_params <- list(
     ls_pos=2
   ),
   string = list(
-    evaluations=4000,
+    evaluations=10000,
     population_size=74,
     num_clusters=11,
     crossover_ratio=0.6820,
@@ -365,7 +365,7 @@ best_params <- list(
     )
   ),
   kegg = list(
-    evaluations=4000,
+    evaluations=10000,
     population_size=40,
     num_clusters=12,
     crossover_ratio=0.7950,
@@ -377,7 +377,7 @@ best_params <- list(
     ls_pos=2
   ),
   disgenet_dis = list(
-    evaluations=4000,
+    evaluations=10000,
     population_size=61,
     num_clusters=10,
     crossover_ratio=0.9372,
@@ -394,7 +394,7 @@ best_params <- list(
     
   ),
   base = list(
-    evaluations=4000,
+    evaluations=10000,
     population_size=40,
     num_clusters=12,
     crossover_ratio=0.70,
@@ -422,7 +422,7 @@ calculate.results <- function(datasets_to_process, debug=FALSE) {
       params <- best_params[[type]]
       params$dmatrix_expression <- dmatrix_expression
       params$dmatrix_biological <- dmatrix_biological
-      params$debug <- debug
+      params$debug <- FALSE
       
       save.metaheuristic.results(dataset$name, type, nsga2.custom, params, runs = 13, debug = debug)
     }
@@ -459,3 +459,9 @@ moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go') {
   metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
   saveRDS(metrics, str_interp("cache/moc_gapbk_renal${dataset_key}_${bio}_results_pop20_g50_metrics.rds"))
 }
+
+#moc.gapbk.evaluate('GSE89116')
+#moc.gapbk.evaluate('GSE53757')
+#moc.gapbk.evaluate('GSE31189')
+#moc.gapbk.evaluate('GSE50161')
+#moc.gapbk.evaluate('GSE6919_U95Av2')

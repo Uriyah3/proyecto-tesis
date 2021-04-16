@@ -445,19 +445,25 @@ profiler <- function(fn, times=1000)
   print(paste("Average execution time:", time.taken / times))
 }
 
-library(moc.gapbk)
+source("moc_gapbk.r")
 
-moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go') {
+moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go', local_search=TRUE, pop_size=10) {
+  start.time <- Sys.time()
+  
   dataset <- datasets[[dataset_key]]
   
   dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
   dmatrix_biological = biological.matrix(NULL, biological_databases[[bio]], dataset=dataset$name)
   
   message(paste("Running moc.gapbk over dataset:", dataset_key, bio))
-  results <- moc.gabk(dmatrix_expression, dmatrix_biological, 10, local_search=FALSE, generation=50, pop_size=20)
-  saveRDS(results, str_interp("cache/moc_gapbk_renal${dataset_key}_${bio}_results_pop20_g50_results.rds"))
+  results <- moc.gapbk(dmatrix_expression, dmatrix_biological, 10, local_search=local_search, generation=50, pop_size=pop_size)
+  saveRDS(results, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_results_pop${pop_size}_g50_ls.rds"))
   metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
-  saveRDS(metrics, str_interp("cache/moc_gapbk_renal${dataset_key}_${bio}_results_pop20_g50_metrics.rds"))
+  saveRDS(metrics, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_metrics_pop${pop_sizex}_g50_ls.rds"))
+  
+  end.time <- Sys.time()
+  time.taken <- end.time - start.time
+  print(time.taken)
 }
 
 #moc.gapbk.evaluate('GSE89116')

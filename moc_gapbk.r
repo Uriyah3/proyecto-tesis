@@ -678,11 +678,9 @@ generate.path.relinking<-function(population_mejorar, num_k, dmatrix1, dmatrix2,
     message("empezar sin paralelismo")
     message(str_interp("Pares: ${nrow(pares)}"))
     for(i in 1:nrow(pares) ){
+      message(i)
       if(i %% 100 == 0) {
         message(str_interp("${i}/${nrow(pares)}"))
-      }
-      if(i > 20) {
-        break
       }
       
       invisible(rbind) ## Para solucionar problema de consumo excesivo de memoria . rbind is referenced and thus exported to workers

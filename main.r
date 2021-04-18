@@ -436,7 +436,7 @@ evaluate.results <- function(datasets_to_process, debug=FALSE) {
       if (debug) {
         message(paste("Processing", dataset$name, type, '...'))
       }
-      reconstruct.metaheuristic.saved.results(dataset$name, type)
+      reconstruct.metaheuristic.saved.results(dataset$name, type, debug=debug)
     }
   }
 }

@@ -429,8 +429,22 @@ calculate.results <- function(datasets_to_process, debug=FALSE) {
   }
 }
 
+evaluate.results <- function(datasets_to_process, debug=FALSE) {
+  for(process_dataset in datasets_to_process) {
+    dataset <- datasets[[process_dataset]]
+    for (type in names(best_params)) {
+      if (debug) {
+        message(paste("Processing", dataset$name, type, '...'))
+      }
+      reconstruct.metaheuristic.saved.results(dataset$name, type)
+    }
+  }
+}
+
 # calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
+# evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
+# evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 
 profiler <- function(fn, times=1000)
 {
@@ -459,7 +473,7 @@ moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go', local
   results <- moc.gapbk(dmatrix_expression, dmatrix_biological, 10, local_search=local_search, generation=50, pop_size=pop_size)
   saveRDS(results, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_results_pop${pop_size}_g50_ls.rds"))
   metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
-  saveRDS(metrics, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_metrics_pop${pop_sizex}_g50_ls.rds"))
+  saveRDS(metrics, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_metrics_pop${pop_size}_g50_ls.rds"))
   
   end.time <- Sys.time()
   time.taken <- end.time - start.time

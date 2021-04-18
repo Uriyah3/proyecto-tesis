@@ -20,16 +20,38 @@ which.median = function(x) {
   }
 }
 
-evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max, dataset_name=NULL, bio=NULL ) {
+#' Choose the solution that has silhouette higher than or equal to the median
+#' and minimum biological optimization index.
+which.best <- function(which.x, silhouette_results, population = NULL) {
+  if(is.character(which.x) && which.x == 'best'){ 
+    median_silhouette <- silhouette_results[which.median(silhouette_results)[1]]
+    min_bio = 2
+    best_solution_index = 0
+    for(i in 1:length(silhouette_results)) {
+      if(silhouette_results[i] >= median_silhouette) {
+        if(population$objective_bio[i] < min_bio ) {
+          best_solution_index <- i
+          min_bio <- population$objective_bio[i]
+        }
+      }
+    }
+    return(best_solution_index)
+  } else {
+    return(which.x(silhouette_results)[1])
+  }
+}
+
+evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max, dataset_name=NULL, bio=NULL, iter=NULL ) {
   
-  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug)
-  hypervolume_results <- evaluator.hypervolume( results$population, debug )
+  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter)
+  hypervolume_results <- evaluator.hypervolume( results$population, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter )
   
-  cond_sil <- which.x(silhouette_results$silhouette)[1]
+  # cond_sil <- which.x(silhouette_results$silhouette)[1]
+  cond_sil <- which.best(which.x, silhouette_results$silhouette, results$population)
   if (debug) {
     message(paste("Se analiza biologicamente solucion con silueta =", silhouette_results$silhouette[[cond_sil]]))
   }
-  biology_results <- evaluator.biological.significance( results$clustering[[cond_sil]], colnames(dmatrix), dataset_name, bio, debug )
+  biology_results <- evaluator.biological.significance( results$clustering[[cond_sil]], colnames(dmatrix), dataset_name=dataset_name, bio=bio, debug=debug, iter=iter )
   biology_summary <- unlist(biology_results)
   biology_summary <- c(by(biology_summary, names(biology_summary), mean, na.rm = TRUE))
   
@@ -42,40 +64,23 @@ evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE
   return( metrics )
 }
 
-evaluator.multiobjective.clustering.custom.bio <- function( results, dmatrix_expression, dataset_name, debug=FALSE, which.x = which.max, bio=NULL ) {
-  bio_sources = list(
-    go = "gene ontology",
-    string = "STRING",
-    kegg = "KEGG-pathway",
-    disgenet_dis = "disgenet-disease"
-  )
+evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL, which.x=NULL ) {
   
-  metrics <- evaluator.multiobjective.clustering.no.bio(results, dmatrix_expression, debug)
-  
-  gene_list <- colnames(dmatrix_expression)
-  biology_silhouette <- list()
-  for(source in bio_sources) {
-    dmatrix_bio <- biological.matrix(gene_list, source, dataset=dataset_name)
-    biology_silhouette[[source]] <- evaluator.silhouette(results$clustering, dmatrix_bio, debug)
-  }
-  dmatrix_bio <- NULL
-  
-  metrics$biological <- biology_silhouette
-  return(metrics)
-}
-
-evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL ) {
-  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug )
-  hypervolume_results <- evaluator.hypervolume( results$population, debug )
+  silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter )
+  hypervolume_results <- evaluator.hypervolume( results$population, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter )
   
   metrics <- list(
     silhouette = silhouette_results,
     hypervolume = hypervolume_results
   )
+  
   return( metrics )
 }
 
-evaluator.hypervolume <- function( population, debug = FALSE ) {
+evaluator.hypervolume <- function( population, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL ) {
+  if (!is.null(metrics <- load.evaluation.from.cache(dataset_name, bio, iter, 'hypervolume'))) {
+    return(metrics)
+  }
   num_clusters <- ncol(population) - 4
   
   pareto_points <- as.matrix( population[ , (num_clusters+1):(num_clusters+2) ] )
@@ -91,10 +96,15 @@ evaluator.hypervolume <- function( population, debug = FALSE ) {
     normalized_hypervolume = n_hypervolume, # Hypervolume using normalized data to [0,1].
     centered_hypervolume = centered_hypervolume # Hypervolume with (1,1) as reference point
   )
+  store.evaluation.to.cache(metrics, dataset_name, bio, iter, 'hypervolume')
   return( metrics )
 }
 
-evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE ) {
+evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL ) {
+  if (!is.null(metrics <- load.evaluation.from.cache(dataset_name, bio, iter, 'silhouette'))) {
+    return(metrics)
+  }
+  
   solution_count <- length(clustering)
   
   silhouette_indices = double(solution_count)
@@ -110,10 +120,15 @@ evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE ) {
     min_silhouette = min(silhouette_indices),
     sd_silhouette = sd(silhouette_indices)
   )
+  store.evaluation.to.cache(metrics, dataset_name, bio, iter, 'silhouette')
   return( metrics )
 }
 
-evaluator.biological.significance <- function( clustering, full_gene_list, dataset_name=NULL, bio=NULL, debug = FALSE, id=NULL ) {
+evaluator.biological.significance <- function( clustering, full_gene_list, dataset_name=NULL, bio=NULL, debug = FALSE, iter=NULL, id=NULL ) {
+  if (!is.null(metrics <- load.evaluation.from.cache(dataset_name, bio, iter, 'biological'))) {
+    return(metrics)
+  }
+  message("Calculating manually")
   # Agregar los nombres de los genes a la cabecera
   clustering <- as.data.frame(t(clustering))
   colnames(clustering) <- full_gene_list
@@ -195,9 +210,27 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     results$mean_enrichment <- mean(enrichment)
     results$min_enrichment <- min(enrichment)
     results$sd_enrichment <- sd(enrichment)
+    
+    store.evaluation.to.cache(results, dataset_name, bio, iter, 'biological')
   }
   
   return( results )
+}
+
+jobs <<- 180
+email.list <<- NULL
+email.rotator <- function() {
+  if(is.null(email.list)) {
+    email.list <<- c("a", "b")
+  }
+  
+  jobs <<- jobs - 1
+  
+  if(jobs <= 0) {
+    email.list <<- email.list[-1]  
+  }
+  
+  return(email.list[1])
 }
 
 evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
@@ -331,7 +364,7 @@ reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, ru
     
     filename <- build.saved.results.filename(dataset.name, identifier, n)
     iteration_results <- readRDS(filename)
-    results = run_evaluator(iteration_results$nsga, dmatrix_expression, debug=debug, dataset_name=dataset.name, identifier)
+    results = run_evaluator(iteration_results$nsga, dmatrix_expression, which.x = 'best', debug=debug, dataset_name=dataset.name, bio=identifier, iter=n)
     iteration_results$nsga <- NULL
     iteration_results <- c(results, iteration_results)
     
@@ -355,10 +388,26 @@ build.saved.results.filename <- function(dataset.name, identifier, iteration) {
   )
 }
 
+build.evaluation.cache.filename <- function(dataset.name, identifier, iteration, evaluation) {
+  return(
+    str_interp("cache/metaheuristic-${dataset.name}-${identifier}-${iteration}-${evaluation}.rda")
+  )
+}
+
+load.evaluation.from.cache <- function(dataset.name, identifier, iteration, evaluation) {
+  file.name <- build.evaluation.cache.filename(dataset.name, identifier, iteration, evaluation)
+  if( file.exists(file.name) ) {
+    return( readRDS(file.name) )
+  } else {
+    return( NULL )
+  }
+}
+
+store.evaluation.to.cache <- function(data, dataset.name, identifier, iteration, evaluation) {
+  file.name <- build.evaluation.cache.filename(dataset.name, identifier, iteration, evaluation)
+  saveRDS(data, file.name)
+}
+
 #results <- evaluator.metaheuristics(nsga2.custom, list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, population_size = 2, generations = 1, num_clusters = 3, ls_pos=NULL, local_search = NULL, debug=TRUE))
 #results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 10, num_clusters = 5, ls_pos=NULL, local_search = NULL, debug=TRUE)
 
-
-
-evaluator.friedman <- function() {
-}

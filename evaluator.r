@@ -217,25 +217,47 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
   return( results )
 }
 
-jobs <<- 180
+#' Used to "bypass" the daily job limit in DAVID's web service
+jobs <<- 190
 email.list <<- NULL
 email.rotator <- function() {
   if(is.null(email.list)) {
-    email.list <<- c("a", "b")
+    email.list <<- readLines('mail_list.txt')
+    email.start <<- Sys.time()
   }
   
   jobs <<- jobs - 1
   
   if(jobs <= 0) {
-    email.list <<- email.list[-1]  
+    email.list <<- email.list[-1]
+    jobs <<- 190
+    
+    wait.time <- sample(100:900, 1)
+    message(str_interp("Waiting ${wait.time} seconds to continue using next email"))
+    Sys.sleep(wait.time)
+  }
+  
+  # No quedan elementos al eliminar
+  if (length(email.list) == 0) {
+    message("Waiting until a day has passed to reuse the email list...")
+    email.end <- Sys.time()
+    time.to.day <- max(0, round(96000 - difftime(email.end,email.start,units="secs")))
+    message(str_interp("Wating ${time.to.day} seconds"))
+    Sys.sleep(time.to.day)
+    email.list <<- NULL
+    return(email.rotator())
   }
   
   return(email.list[1])
 }
 
 evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
+  current.email = email.rotator()
+  if(debug) {
+    message(str_interp("Current mail usage: ${current.email} ${jobs}/190"))
+  }
   #https://david.ncifcrf.gov/webservice/services/DAVIDWebService/authenticate?args0=nicolas.mariangel@usach.cl
-  david <- DAVIDWebService$new(email='nicolas.mariangel@usach.cl', url='https://david.ncifcrf.gov/webservice/services/DAVIDWebService')
+  david <- DAVIDWebService$new(email=current.email, url='https://david.ncifcrf.gov/webservice/services/DAVIDWebService')
   # Se cae a veces con el siguiente error: 
   # [INFO] Unable to sendViaPost to url[https://david.ncifcrf.gov/webservice/services/DAVIDWebService]
   # java.net.SocketTimeoutException: Read timed out

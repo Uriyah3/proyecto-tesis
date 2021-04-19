@@ -445,29 +445,30 @@ show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multi
   for(process_dataset in datasets_to_process) {
     dataset <- datasets[[process_dataset]]
     for (type in names(best_params)) {
-      if (debug) {
-        message(paste("Showing results for: ", dataset$name, type, '...'))
-      }
-      metrics <- reconstruct.metaheuristic.saved.results(dataset$name, type, debug=debug, runs = runs, run_evaluator = evaluator, skip.loading=TRUE)
-      message(paste("Silhouette (max):", metrics$mean_results[['silhouette.max_silhouette']]))
-      message(paste("Silhouette (mean):", metrics$mean_results[['silhouette.mean_silhouette']]))
-      message(paste("Silhouette (min):", metrics$mean_results[['silhouette.min_silhouette']]))
-      message(paste("Silhouette (sd):", metrics$mean_results[['silhouette.sd_silhouette']]))
-      message(paste("Hypervolume (1,1):", metrics$mean_results[['hypervolume.centered_hypervolume']]))
-      message(paste("Hypervolume (normal):", metrics$mean_results[['hypervolume.hypervolume']]))
+      message(paste("Showing results for: ", dataset$name, type, '...'))
       
-      if(!is.null(metrics$mean_results[['biological.cluster_count']])) {
+      metrics <- reconstruct.metaheuristic.saved.results(dataset$name, type, debug=debug, runs = runs, run_evaluator = evaluator, skip.loading=TRUE)
+      message(paste("Silhouette (max):", round(metrics$mean_results[['silhouette.max_silhouette']], 3)))
+      message(paste("Silhouette (mean):", round(metrics$mean_results[['silhouette.mean_silhouette']], 3)))
+      message(paste("Silhouette (min):", round(metrics$mean_results[['silhouette.min_silhouette']], 3)))
+      message(paste("Silhouette (sd):", round(metrics$mean_results[['silhouette.sd_silhouette']], 3)))
+      message(paste("Hypervolume (1,1):", round(metrics$mean_results[['hypervolume.centered_hypervolume']], 3)))
+      message(paste("Hypervolume (normal):", round(metrics$mean_results[['hypervolume.hypervolume']], 3)))
+      
+      if(!is.null(metrics$full_results[[1]]$biological)) {
         message(paste("DAVID (#grupos):", metrics$full_results[[1]]$biological$cluster_count))
-        message(paste("DAVID (max_enrichment):", metrics$full_results[[1]]$biological$max_enrichment))
-        message(paste("DAVID (mean_enrichment):", metrics$full_results[[1]]$biological$mean_enrichment))
-        message(paste("DAVID (sd_enrichment):", metrics$full_results[[1]]$biological$sd_enrichment))
+        message(paste("DAVID (max_enrichment):", round(metrics$full_results[[1]]$biological$max_enrichment, 3)))
+        message(paste("DAVID (mean_enrichment):", round(metrics$full_results[[1]]$biological$mean_enrichment, 3)))
+        message(paste("DAVID (sd_enrichment):", round(metrics$full_results[[1]]$biological$sd_enrichment, 3)))
       }
+      message("\n")
     }
   }
 }
 
 # calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
+# show.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)

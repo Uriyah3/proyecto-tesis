@@ -441,7 +441,7 @@ evaluate.results <- function(datasets_to_process, runs=13, evaluator=evaluator.m
   }
 }
 
-show.results <- functionfunction(datasets_to_process, runs=13, evaluator=evaluator.multiobjective.clustering.no.bio, debug=FALSE) {
+show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multiobjective.clustering.no.bio, debug=FALSE) {
   for(process_dataset in datasets_to_process) {
     dataset <- datasets[[process_dataset]]
     for (type in names(best_params)) {

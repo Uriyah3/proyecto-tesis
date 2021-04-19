@@ -452,11 +452,18 @@ show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multi
       message(paste("Silhouette (mean):", round(metrics$mean_results[['silhouette.mean_silhouette']], 3)))
       message(paste("Silhouette (min):", round(metrics$mean_results[['silhouette.min_silhouette']], 3)))
       message(paste("Silhouette (sd):", round(metrics$mean_results[['silhouette.sd_silhouette']], 3)))
-      message(paste("Hypervolume (1,1):", round(metrics$mean_results[['hypervolume.centered_hypervolume']], 3)))
-      message(paste("Hypervolume (normal):", round(metrics$mean_results[['hypervolume.hypervolume']], 3)))
+      message(paste("Hypervolume (1,1):", round(metrics$mean_results[['hypervolume.centered_hypervolume']], 4)))
+      message(paste("Hypervolume (normal):", round(metrics$mean_results[['hypervolume.hypervolume']], 4)))
       
       if(!is.null(metrics$full_results[[1]]$biological)) {
         message(paste("DAVID (#grupos):", metrics$full_results[[1]]$biological$cluster_count))
+        
+        if (metrics$full_results[[1]]$biological$max_enrichment == Inf) {
+          enrichment <- unlist(sapply(1:12, function(x) {metrics$full_results[[1]]$biological[[x]]$enrichment}))
+          metrics$full_results[[1]]$biological$max_enrichment <- max(enrichment[enrichment < Inf])
+          metrics$full_results[[1]]$biological$mean_enrichment <- mean(enrichment[enrichment < Inf])
+          metrics$full_results[[1]]$biological$sd_enrichment <- sd(enrichment[enrichment < Inf])
+        }
         message(paste("DAVID (max_enrichment):", round(metrics$full_results[[1]]$biological$max_enrichment, 3)))
         message(paste("DAVID (mean_enrichment):", round(metrics$full_results[[1]]$biological$mean_enrichment, 3)))
         message(paste("DAVID (sd_enrichment):", round(metrics$full_results[[1]]$biological$sd_enrichment, 3)))
@@ -468,11 +475,14 @@ show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multi
 
 # calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
-# show.results(list('GSE89116', 'GSE53757'), debug=TRUE)
+# show.results(list('GSE89116', 'GSE53757'), debug=FALSE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
+# show.results(list('GSE53757'), debug=FALSE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
+# show.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=FALSE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
+# show.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=FALSE, runs=1, evaluator = evaluator.multiobjective.clustering)
 
 profiler <- function(fn, times=1000)
 {
@@ -486,27 +496,27 @@ profiler <- function(fn, times=1000)
   print(time.taken)
   print(paste("Average execution time:", time.taken / times))
 }
-
-source("moc_gapbk.r")
-
-moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go', local_search=TRUE, pop_size=10) {
-  start.time <- Sys.time()
-  
-  dataset <- datasets[[dataset_key]]
-  
-  dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
-  dmatrix_biological = biological.matrix(NULL, biological_databases[[bio]], dataset=dataset$name)
-  
-  message(paste("Running moc.gapbk over dataset:", dataset_key, bio))
-  results <- moc.gapbk(dmatrix_expression, dmatrix_biological, 10, local_search=local_search, generation=50, pop_size=pop_size)
-  saveRDS(results, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_results_pop${pop_size}_g50_ls.rds"))
-  metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
-  saveRDS(metrics, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_metrics_pop${pop_size}_g50_ls.rds"))
-  
-  end.time <- Sys.time()
-  time.taken <- end.time - start.time
-  print(time.taken)
-}
+# 
+# source("moc_gapbk.r")
+# 
+# moc.gapbk.evaluate <- function(dataset_key = 'GSE6919_U95Av2', bio = 'go', local_search=TRUE, pop_size=10) {
+#   start.time <- Sys.time()
+#   
+#   dataset <- datasets[[dataset_key]]
+#   
+#   dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
+#   dmatrix_biological = biological.matrix(NULL, biological_databases[[bio]], dataset=dataset$name)
+#   
+#   message(paste("Running moc.gapbk over dataset:", dataset_key, bio))
+#   results <- moc.gapbk(dmatrix_expression, dmatrix_biological, 10, local_search=local_search, generation=50, pop_size=pop_size)
+#   saveRDS(results, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_results_pop${pop_size}_g50_ls.rds"))
+#   metrics <- evaluator.multiobjective.clustering(results, dmatrix_expression, debug=TRUE)
+#   saveRDS(metrics, str_interp("cache/moc_gapbk_${dataset$name}_${bio}_metrics_pop${pop_size}_g50_ls.rds"))
+#   
+#   end.time <- Sys.time()
+#   time.taken <- end.time - start.time
+#   print(time.taken)
+# }
 
 #moc.gapbk.evaluate('GSE89116')
 #moc.gapbk.evaluate('GSE53757')

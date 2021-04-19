@@ -153,19 +153,28 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     # limit. Apply kmeans over the genes and average the results
     if (length(gene_list) >= 3000) {
       if (!is.null(dataset_name) && !is.null(bio)) {
+        if(bio == 'base') {
+          bio = 'go'
+        }
+        
         if (bio %in% names(biological_databases)) {
           dmatrix <- biological.matrix(NULL, biological_databases[[bio]], dataset=dataset_name)
-        } else {
+        } else  {
           dmatrix <- expression.matrix(NULL, dataset=dataset_name)
         }
         dmatrix <- dmatrix[rownames(dmatrix) %in% gene_list, colnames(dmatrix) %in% gene_list, drop=FALSE]
         
         intra_clustering <- kmeans(dmatrix, 5, iter.max=50, nstart=10)
-        if(max(intra_clustering$size) >= length(gene_list) * 0.85 )  {
-          message("Run k-means using expression matrix because bio matrix is not separating at all")
-          dmatrix <- expression.matrix(NULL, dataset=dataset_name)
-          dmatrix <- dmatrix[rownames(dmatrix) %in% gene_list, colnames(dmatrix) %in% gene_list, drop=FALSE]
-          intra_clustering <- kmeans(dmatrix, 5, iter.max=50, nstart=10)
+        if(max(intra_clustering$size) >= length(gene_list) * 0.95 && max(intra_clustering$size) > 3000)  {
+          message(str_interp("Run k-means with more clusters because the big group is not getting separated: ${length(gene_list)} -> ${max(intra_clustering$size)}"))
+          
+          intra_clustering <- kmeans(dmatrix, 10, iter.max=20, nstart=5)
+          if(max(intra_clustering$size) >= length(gene_list) * 0.95 && max(intra_clustering$size) > 3000)  {
+            message("Run k-means using expression matrix because bio matrix is not separating at all")
+            dmatrix <- expression.matrix(NULL, dataset=dataset_name)
+            dmatrix <- dmatrix[rownames(dmatrix) %in% gene_list, colnames(dmatrix) %in% gene_list, drop=FALSE]
+            intra_clustering <- kmeans(dmatrix, 5, iter.max=50, nstart=10)
+          }
         }
         
         temp_results <- evaluator.biological.significance(intra_clustering$cluster, gene_list, dataset_name, bio, debug, id=paste(id,cluster,'.',sep=""))

@@ -381,8 +381,10 @@ save.metaheuristic.results <- function(dataset.name, identifier, metaheuristic, 
   })
 }
 
-reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE) {
-  dmatrix_expression <- expression.matrix(NULL, dataset=dataset.name)
+reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE, skip.loading=FALSE) {
+  if (skip.loading) {
+    dmatrix_expression <- expression.matrix(NULL, dataset=dataset.name)
+  }
   results <- lapply( 1:runs, function(n) {
     if (debug) {
       message("--------------------------------------------------")

@@ -441,10 +441,37 @@ evaluate.results <- function(datasets_to_process, runs=13, evaluator=evaluator.m
   }
 }
 
+show.results <- functionfunction(datasets_to_process, runs=13, evaluator=evaluator.multiobjective.clustering.no.bio, debug=FALSE) {
+  for(process_dataset in datasets_to_process) {
+    dataset <- datasets[[process_dataset]]
+    for (type in names(best_params)) {
+      if (debug) {
+        message(paste("Showing results for: ", dataset$name, type, '...'))
+      }
+      metrics <- reconstruct.metaheuristic.saved.results(dataset$name, type, debug=debug, runs = runs, run_evaluator = evaluator, skip.loading=TRUE)
+      message(paste("Silhouette (max):", metrics$mean_results[['silhouette.max_silhouette']]))
+      message(paste("Silhouette (mean):", metrics$mean_results[['silhouette.mean_silhouette']]))
+      message(paste("Silhouette (min):", metrics$mean_results[['silhouette.min_silhouette']]))
+      message(paste("Silhouette (sd):", metrics$mean_results[['silhouette.sd_silhouette']]))
+      message(paste("Hypervolume (1,1):", metrics$mean_results[['hypervolume.centered_hypervolume']]))
+      message(paste("Hypervolume (normal):", metrics$mean_results[['hypervolume.hypervolume']]))
+      
+      if(!is.null(metrics$mean_results[['biological.cluster_count']])) {
+        message(paste("DAVID (#grupos):", metrics$full_results[[1]]$biological$cluster_count))
+        message(paste("DAVID (max_enrichment):", metrics$full_results[[1]]$biological$max_enrichment))
+        message(paste("DAVID (mean_enrichment):", metrics$full_results[[1]]$biological$mean_enrichment))
+        message(paste("DAVID (sd_enrichment):", metrics$full_results[[1]]$biological$sd_enrichment))
+      }
+    }
+  }
+}
+
 # calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
+# evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
+# evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 
 profiler <- function(fn, times=1000)
 {

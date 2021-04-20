@@ -154,11 +154,13 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     if (length(gene_list) >= 3000) {
       if (!is.null(dataset_name) && !is.null(bio)) {
         if(bio == 'base') {
-          bio = 'go'
+          bio.source = 'go'
+        } else {
+          bio.source = bio
         }
         
-        if (bio %in% names(biological_databases)) {
-          dmatrix <- biological.matrix(NULL, biological_databases[[bio]], dataset=dataset_name)
+        if (bio.source %in% names(biological_databases)) {
+          dmatrix <- biological.matrix(NULL, biological_databases[[bio.source]], dataset=dataset_name)
         } else  {
           dmatrix <- expression.matrix(NULL, dataset=dataset_name)
         }

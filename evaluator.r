@@ -458,7 +458,6 @@ store.evaluation.to.cache <- function(data, dataset.name, identifier, iteration,
 find.best.solution.for.david <- function(dataset.name, identifier, evaluation = 'biological', runs=13) {
   dmatrix_expression <- NULL
   solutions <- lapply(1:runs, function(iteration) {
-    message(iteration)
     filename <- build.saved.results.filename(dataset.name, identifier, iteration)
     iteration_results <- readRDS(filename)
     

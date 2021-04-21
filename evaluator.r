@@ -142,7 +142,7 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     if (debug) {
       message(paste("Procesando lista#", id, cluster, " con ", length(gene_list), " genes...", sep=""))
     }
-    if(length(gene_list) <= 3) {
+    if(length(gene_list) < 3) {
       if (debug) {
         message(paste("Saltando el listado 1-2 genes:",paste0(gene_list, collapse=",")))
       }
@@ -403,6 +403,12 @@ reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, ru
       message("\n")
     }
     
+    if(identical(run_evaluator, evaluator.multiobjective.clustering)) {
+      n <- find.best.solution.for.david(dataset.name, identifier)
+      if(debug) {
+        message(str_interp("Using execution ${n} to load biological results"))
+      }
+    }
     filename <- build.saved.results.filename(dataset.name, identifier, n)
     iteration_results <- readRDS(filename)
     results = run_evaluator(iteration_results$nsga, dmatrix_expression, which.x = 'best', debug=debug, dataset_name=dataset.name, bio=identifier, iter=n)
@@ -447,6 +453,40 @@ load.evaluation.from.cache <- function(dataset.name, identifier, iteration, eval
 store.evaluation.to.cache <- function(data, dataset.name, identifier, iteration, evaluation) {
   file.name <- build.evaluation.cache.filename(dataset.name, identifier, iteration, evaluation)
   saveRDS(data, file.name)
+}
+
+find.best.solution.for.david <- function(dataset.name, identifier, evaluation = 'biological', runs=13) {
+  dmatrix_expression <- NULL
+  solutions <- lapply(1:runs, function(iteration) {
+    message(iteration)
+    filename <- build.saved.results.filename(dataset.name, identifier, iteration)
+    iteration_results <- readRDS(filename)
+    
+    silhouette_results <- NULL
+    try(
+      silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, NULL, dataset_name=dataset.name, bio=identifier, iter=iteration )
+    )
+    if (is.null(silhouette_results) && is.null(dmatrix_expression)) {
+      dmatrix_expression <- expression.matrix(NULL, dataset=dataset$name)
+      silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, dmatrix_expression, dataset_name=dataset.name, bio=identifier, iter=iteration )
+    }
+    
+    solution_index <- which.best('best', silhouette_results$silhouette, iteration_results$nsga$population)
+    return(list(
+      objective_bio = iteration_results$nsga$population$objective_bio[[solution_index]],
+      silhouette = silhouette_results$silhouette[[solution_index]]
+    ))
+  })
+  solutions <- do.call(rbind, lapply(solutions, data.frame))
+  #solutions$silhouette <- -solutions$silhouette
+  #ranking <- nsga2R::fastNonDominatedSorting( solutions )
+  #solutions_rank <- helper.pareto.ranking( nrow(solutions), ranking )
+  #solutions <- cbind(solutions, solutions_rank)
+  #solutions$silhouette <- -solutions$silhouette
+  
+  #solutions <- solutions[order(solutions$solutions_rank), ]
+  
+  best_solution <- which.best('best', solutions$silhouette, solutions)
 }
 
 #results <- evaluator.metaheuristics(nsga2.custom, list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, population_size = 2, generations = 1, num_clusters = 3, ls_pos=NULL, local_search = NULL, debug=TRUE))

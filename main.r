@@ -4,6 +4,9 @@ source("matrices_evaluation.r")
 source("globals.r")
 source("evaluator.r")
 source("file_utils.r")
+library(ComplexHeatmap)
+library(circlize)
+library(magick)
 library(future)
 library(profvis)
 options(bitmapType='cairo')
@@ -133,11 +136,11 @@ datasets <- list(
 
 
 run.default <- function() {
-  test_file_name <- 'Renal_GSE53757'
-  test_file <- paste("data/evaluation/", test_file_name, '.csv.gz', sep="")
+  test_file_name <- 'Leukemia_GSE28497.csv-1-all-sample-5-percent'
+  test_file <- paste("data/training/samples/", test_file_name, '.csv', sep="")
   data <- read.dataset(test_file)
   
-  data <- clean.and.translate.entrez.id(data, "GPL570")
+  data <- clean.and.translate.entrez.id(data, "GPL96")
   data <- data[ , order( as.numeric(colnames(data)) ) ]
   
   gene_list <- colnames(data)
@@ -145,11 +148,11 @@ run.default <- function() {
   dmatrix_biological = biological.matrix(gene_list, biological_databases$go, dataset=test_file_name)
   
   #set.seed(1048)
-  #Rprof("profile1.out", line.profiling=TRUE, memory.profiling=TRUE)
-  results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, generations = 40, num_clusters = 5, ls_pos=NULL, local_search = NULL)
-  #Rprof(NULL)
-  
-  #summaryRprof("profile1.out", lines = "show")
+  #profmem({			
+  #results <- nsga2.custom(dmatrix_expression, dmatrix_biological, population_size = 80, evaluations = 40000, num_clusters = 5, ls_pos=1, local_search = local_search_algorithms$pls, ls_budget = 90.0, neighborhood = 0.5, debug=TRUE, ls_params=list(rank_cutoff=3, acceptance_criteria_fn=helper.non.dominated))
+  params = list(dmatrix_expression=dmatrix_expression, dmatrix_biological=dmatrix_biological, population_size = 80, evaluations = 2800, num_clusters = 5, ls_pos=1, local_search = local_search_algorithms$pls, neighborhood = 0.7, debug=TRUE, ls_params=list(rank_cutoff=3, acceptance_criteria_fn=helper.non.dominated))
+  results <- evaluator.metaheuristics(nsga2.custom, params, runs=3)
+  #})
 }
 
 #' Used along run.r.sample.test to check if there is any bias in R's sample method.
@@ -476,13 +479,25 @@ show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multi
 # calculate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE)
 # show.results(list('GSE89116', 'GSE53757'), debug=FALSE)
-# evaluate.results(list('GSE89116', 'GSE53757'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
+# evaluate.results(list('GSE53757'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # show.results(list('GSE53757'), debug=FALSE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # calculate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE)
 # show.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=FALSE)
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # show.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=FALSE, runs=1, evaluator = evaluator.multiobjective.clustering)
+
+plot.compare.kmedoids <- function(nsga_results, kobj_exp, kobj_bio) {
+  d <- nsga_results$population[, colnames(nsga_results$population) %in% c('objective_exp', 'objective_bio')]
+  d2 <- as.data.frame(cbind(kobj_exp, kobj_bio))
+  ggplot() +
+    geom_step(data=d, mapping=aes(x=objective_exp, y=objective_bio)) +
+    geom_step(data=d, mapping=aes(x=objective_exp, y=objective_bio), direction="vh", linetype=3) +
+    geom_point(data=d, mapping=aes(x=objective_exp, y=objective_bio, color="Frontera \nde Pareto"), size=3) + xlim(0, 1) + ylim(0, 1) +
+    geom_point(data=d2, mapping=aes(x=kobj_exp, y=kobj_bio, color="K-medoides"), size=3) + xlab("Objetivo expresión") + ylab("Objetivo biológico") + ggtitle("Posicionar solución de k-medoides en la frontera\n de Pareto del algoritmo") + labs(color = "Solución") +theme(text = element_text(size=15))
+  
+  ggsave(str_interp("comparacion_k_medoids.png"), device="png", path="plots", width=6.6, height=5.5)
+}
 
 profiler <- function(fn, times=1000)
 {
@@ -523,3 +538,100 @@ profiler <- function(fn, times=1000)
 #moc.gapbk.evaluate('GSE31189')
 #moc.gapbk.evaluate('GSE50161')
 #moc.gapbk.evaluate('GSE6919_U95Av2')
+
+
+create.heatmap.for.best.solution <- function(dataset.key, biological.identifier) {
+  dataset <- datasets[[dataset.key]]
+  dataset.name <- dataset$name
+  best_iteration <- find.best.solution.for.david(dataset.name, biological.identifier)
+  filename <- build.saved.results.filename(dataset.name, biological.identifier, best_iteration)
+  iteration_results <- readRDS(filename)
+  
+  message("Cargando mejor solución")
+  silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, NULL, dataset_name=dataset.name, bio=biological.identifier, iter=best_iteration )
+  solution_index <- which.best('best', silhouette_results$silhouette, iteration_results$nsga$population)
+  best_solution <- iteration_results$nsga$clustering[[solution_index]]
+  
+  message("Cargando datos")
+  data <- load.dataset(dataset)
+  data <- t(scale(data))
+  # Reverse translate entrez_gene_id back into dataset's/platform's specific gene names
+  
+  message("Creando heatmap")
+  create.heatmap.from.solution(data, best_solution, str_interp("${dataset.name}_${biological.identifier}_meta"))
+}
+
+calc_ht_size = function(ht, unit = "inch") {
+  pdf(NULL)
+  ht = draw(ht)
+  w = ComplexHeatmap:::width(ht)
+  w = convertX(w, unit, valueOnly = TRUE)
+  h = ComplexHeatmap:::height(ht)
+  h = convertY(h, unit, valueOnly = TRUE)
+  dev.off()
+  
+  c(w, h)
+}
+
+create.heatmap.from.solution <- function(df, clustering.solution, filename="heatmap-test") {
+  # Specify which clusters for each gene and automatic sorting inside each row
+  # (sample) and inside each cluster of genes 
+  htBig = Heatmap(df, use_raster = TRUE, raster_quality = 50,
+               width = unit(550, 'mm'), height = unit(830, 'mm'), name = "Color Key",
+               column_title = "Muestras", row_title = "Genes",
+               show_row_names = FALSE, show_column_names = FALSE,
+               col = colorRamp2(c(-4, 0, 4), c("green", "black", "red")),
+               row_split = clustering.solution
+  )
+  
+  htSmall = Heatmap(df, use_raster = TRUE, raster_quality = 50,
+               width = unit(110, 'mm'), height = unit(170, 'mm'), name = "Color Key",
+               column_title = "Muestras", row_title = "Genes",
+               show_row_names = FALSE, show_column_names = FALSE,
+               col = colorRamp2(c(-4, 0, 4), c("green", "black", "red")),
+               row_split = clustering.solution
+  )
+  
+  # 7.445309 6.714764 in inches
+  gc()
+  png(paste0("plots/", filename, "-big.png"),width=600,height=880,units="mm", res=400)
+  draw(htBig)
+  dev.off()
+  gc()
+  png(paste0("plots/", filename, "-small.png"),width=150,height=220,units="mm", res=400)
+  draw(htSmall)
+  dev.off()
+}
+
+boxplot.kegg.vs.moc <- function() {
+  ev.datasets <- list('GSE89116', 'GSE53757', 'GSE31189', 'GSE50161', 'GSE6919_U95Av2')
+  moc.silhouette.max <- c(0.050, 0.114, 0.121, 0.163, 0.198)
+  moc.silhouette.mean <- c(0.01, 0.070, 0.061, 0.080, 0.115)
+  moc.david.grupos <- c(5915, 6224, 6276, 3914)
+  moc.david.enrichment.mean <- c(1.092, 0.973, 1.012, 1.677)
+  
+  for(i in 1:5) {
+    dataset <- datasets[[ev.datasets[[i]]]]
+    mean_silhouette <- sapply(1:13, function(j) {
+      silhouette_results <- load.evaluation.from.cache(dataset$name, 'kegg', j, 'silhouette')
+      silhouette_results$mean_silhouette
+    })
+    max_silhouette <- sapply(1:13, function(j) {
+      silhouette_results <- load.evaluation.from.cache(dataset$name, 'kegg', j, 'silhouette')
+      silhouette_results$max_silhouette
+    })
+    
+    dataset.name <- dataset$name
+    data <- list("Algoritmo Propuesto\n(KEGG)"=mean_silhouette, "MOC-GaP|K\n(GO)"=moc.silhouette.mean[[i]])
+    png(filename=str_interp("plots/${dataset.name}_kegg_moc_silueta_promedio.png"), width = 440, height= 350)
+    par(mgp=c(3,2,0), cex.lab=1.2, cex.axis=1.2, cex.main=1.3)
+    boxplot(data, ylab='Silueta promedio', ylim=c(0,0.76), main=paste0(dataset$name, ' Silueta promedio'), col=c('lightblue', 'gray')) # xlab = 'Algoritmo'
+    dev.off()
+    
+    png(filename=str_interp("plots/${dataset.name}_kegg_moc_silueta_maxima.png"), width = 440, height = 350)
+    data <- list("Algoritmo Propuesto\n(KEGG)"=max_silhouette, "MOC-GaPBK\n(GO)"=moc.silhouette.max[[i]])
+    par(mgp=c(3,2,0), cex.lab=1.2, cex.axis=1.2, cex.main=1.3)
+    boxplot(data, ylab='Silueta máxima', ylim=c(0,0.76), main=paste0(dataset$name, ' Silueta máxima'), col=c('lightblue', 'gray')) # xlab = 'Algoritmo'
+    dev.off()
+  }
+}

@@ -466,6 +466,7 @@ find.best.solution.for.david <- function(dataset.name, identifier, evaluation = 
       silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, NULL, dataset_name=dataset.name, bio=identifier, iter=iteration )
     )
     if (is.null(silhouette_results) && is.null(dmatrix_expression)) {
+      # esta línea no funciona porque no se ha definido el objeto dataset
       dmatrix_expression <- expression.matrix(NULL, dataset=dataset$name)
       silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, dmatrix_expression, dataset_name=dataset.name, bio=identifier, iter=iteration )
     }

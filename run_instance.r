@@ -4,6 +4,8 @@ library(future.apply)
 source('main.r')
 options(future.globals.maxSize= 2091289600) # 2GB
 
+# Instance used with irace to parameterize the proposed algorithm.
+
 option_list = list(
   make_option(c("--seed"), type = "integer",
               help = "random seed"),

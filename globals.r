@@ -12,8 +12,8 @@ biological_databases <- list(
   go = "gene ontology",
   string = "STRING",
   kegg = "KEGG-pathway",
-  mesh = "MeSH",
-  do = "disease",
+  mesh = "MeSH", # unused
+  do = "disease", # unused
   disgenet_dis = "disgenet-disease",
   disgenet_pw = "disgenet-pathway"
 )

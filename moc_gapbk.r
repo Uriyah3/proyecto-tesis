@@ -1,3 +1,9 @@
+# This is moc_gapbk algorithm copied and pasted from the now defunct CRAN
+# repostory site (https://cran.r-project.org/web/packages/moc.gapbk/index.html).
+# It was used to test why it was taking so long when using its LS methods. The
+# results were that it was calculating and evaluating a lot of new solutions
+# with its LS methods, since its not bounded by max evaluations or time.
+
 #Para evitar que de una NOTE en pathrelinking con variable i
 utils::globalVariables(c("i"))
 
@@ -7,9 +13,6 @@ generate.initial.population<-function(num_objects, num_k, pop_size){
   rm(.Random.seed, envir=globalenv())
   return(as.matrix(population.P))
 }
-
-
-
 
 
 
@@ -247,6 +250,8 @@ calculate.objective.functions <- function(pop_size, population, groups, par_dist
   
   for (x in 1:length(groups)) {
     
+    fitness_counter <<- fitness_counter + 1
+    message(str_interp("Fitness counter: ${fitness_counter}"))
     
     ############### INICIALIZA MATRICES """""""
     n= nrow(par_distancia) #Numero de elementos

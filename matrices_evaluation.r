@@ -11,17 +11,15 @@ library(reshape2)
 library(igraph)
 library(biomaRt)
 
-#' Calculate the expression matrix using the data in \code{gene_profiles} and store
-#' the resulting data frame into cache. Loads the data from cache it it was
-#' calculated before.
+#' Translate the name of the columns (genes) of a matrix of genes and samples
+#' into its respective ENTREZ_GENE_ID using the GPL file provided by GEO.
+#' Genes with duplicate ENTREZ_GENE_ID or without a ENTREZ_GENE_ID are removed.
 #' 
-#' @param gene_profiles Matrix of gene/samples.
-#' @param metric Metric used to calculate amap:Dist. Default: 'abscorrelation'
-#' @param nbproc Number of processed to use in amap::Dist. Default: 2
-#' @param dataset Name of the dataset being processed. Used to store the resulting
-#' matrix into cache.
-#' @return Data frame with expression matrix. This means, pairwise distance
-#' between genes.
+#' @param data Matrix of gene/samples.
+#' @param chip String. Name of the GPL platform used in the dataset. Check file
+#' gpl_chip_to_entrez_id.r for more details.
+#' @return Matrix with gene names translated into ENTREZ_GENE_ID and removing
+#' any "duplicated" genes or genes without a ENTREZ_GENE_ID translation.
 #'
 clean.and.translate.entrez.id <- function(data, chip) {
   # Sanity check if R added an X to the column name
@@ -46,14 +44,16 @@ clean.and.translate.entrez.id <- function(data, chip) {
 }
 
 #' Calculate the expression matrix using the data in \code{gene_profiles} and store
-#' the resulting data frame into cache. Loads the data from cache it it was
+#' the resulting data frame into cache. Loads the data from cache if it was
 #' calculated before.
 #' 
 #' @param gene_profiles Matrix of gene/samples.
 #' @param metric Metric used to calculate amap:Dist. Default: 'abscorrelation'
+#' Used in the related work: pearson.
 #' @param nbproc Number of processed to use in amap::Dist. Default: 2
 #' @param dataset Name of the dataset being processed. Used to store the resulting
-#' matrix into cache.
+#' matrix into cache. Cache refers to using readRDS and saveRDS to avoid 
+#' recalculating data by storing and loading it from disk.
 #' @return Data frame with expression matrix. This means, pairwise distance
 #' between genes.
 #'
@@ -149,7 +149,8 @@ biological.matrix.fill.missing <- function(gene_list, bmatrix) {
 #' using Gene Ontology as the biological data source.
 #' 
 #' @param gene_list Vector of genes using their entrezgene_id.
-#' @return Data frame with biological distance between all pair of genes in \code{gene_list}
+#' @return Data frame with GO biological distance between all pair of genes in 
+#' \code{gene_list}
 #'
 biological.matrix.go <- function(gene_list) {
   d <- GOSemSim::godata('org.Hs.eg.db', ont="MF", computeIC=FALSE)
@@ -280,6 +281,7 @@ biological.matrix.string <- function(gene_list) {
 
 #' Calculate a biological distance matrix between the genes in \code{gene_list}
 #' using MeSH as the biological data source.
+#' This one took too long to process and so it was abandoned.
 #' 
 #' @param gene_list Vector of genes using their entrezgene_id.
 #' @return Data frame with biological distance between all pair of genes in \code{gene_list}
@@ -360,3 +362,6 @@ biological.matrix.disgenet.disease <- function(gene_list, nbproc = 2) {
   
   return( biological.matrix.fill.missing(gene_list, matrix) )
 }
+
+# Note to future readers: I don't remember checking if all these matrices have
+# values between 0 and 1 or if they have different ranges.

@@ -6,6 +6,9 @@ source("file_utils.r")
 library(stringr)
 library(ggplot2)
 
+# This code was written to benchmark some stuff and was overwritten while it
+# was being used. In other words, trying to run it will have unexpected results.
+
 test_file_name <- 'Prostate_13532_31.csv'
 test_file <- paste("data/evaluation/", test_file_name, sep="")
 data <- read.dataset(test_file)

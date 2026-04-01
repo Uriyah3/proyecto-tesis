@@ -7,7 +7,13 @@ library(Rcpp)
 
 source("local_search.r")
 source("globals.r")
-sourceCpp("performance.cpp")
+
+# Performance C++ optimization (requires Rtools)
+tryCatch({
+  sourceCpp("performance.cpp")
+}, error = function(e) {
+  warning("C++ optimization not available. Install Rtools for better performance.")
+})
 
 # Create counters to test algorithm's performance
 fitness_counter <<- 0
@@ -45,6 +51,13 @@ helper.pareto.ranking <- function(popSize, ranking) {
   return(rnkIndex)
 }
 
+#' Remove duplicate solutions from a population by randomizing them
+#' 
+#' @param population Matrix or data.frame of solutions with num_clusters columns
+#' @param gene_list Vector of all available genes
+#' @param num_clusters Integer number of clusters (medoids) per solution
+#' @return Population with duplicates replaced by random solutions
+#' 
 helper.randomize.duplicates <- function(population, gene_list, num_clusters) {
   duplicated_population <- population[ duplicated(population[, 1:num_clusters]), ]
   unique_population <- population[ !duplicated(population[, 1:num_clusters]), ]
@@ -61,10 +74,24 @@ helper.randomize.duplicates <- function(population, gene_list, num_clusters) {
   return( population )
 }
 
+#' Generate initial random population for NSGA-II
+#' 
+#' @param genes Vector of all available genes
+#' @param population_size Integer number of solutions in the population
+#' @param num_clusters Integer number of medoids per solution
+#' @return Data frame with population_size rows and num_clusters columns
+#' 
 generate.initial.population <- function(genes, population_size, num_clusters) {
   as.data.frame( t(sapply( 1:population_size, function(x) as.character(sample( genes, num_clusters, replace=F )) )), stringsAsFactors = FALSE )
 }
 
+#' Calculate objective function values for multiple solutions
+#' 
+#' @param cluster_solutions Matrix of medoid-based solutions
+#' @param dmatrix Distance matrix (expression or biological)
+#' @param type String identifier for caching ('expression' or 'biological')
+#' @return Vector of objective values for each solution
+#' 
 objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {
   objective_indices <- vector()
   for(i in 1:nrow(cluster_solutions)) {
@@ -74,6 +101,13 @@ objective.functions <- function(cluster_solutions, dmatrix, type=NULL) {
   return( objective_indices )
 }
 
+#' Fix invalid medoid solutions by replacing duplicates and zeros
+#' 
+#' @param gene_list Vector of all available genes
+#' @param medoid_solution Vector or data.frame representing a single solution
+#' @param num_clusters Integer number of medoids in the solution
+#' @return Valid medoid solution as data frame
+#' 
 medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) {
   medoid_solution <- as.list(medoid_solution)
   while(sum(duplicated(medoid_solution)) > 0 || length(medoid_solution[medoid_solution == 0]) > 0) {
@@ -83,6 +117,9 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
   return(as.data.frame(medoid_solution, stringsAsFactors = FALSE))
 }
 
+# OLD IMPLEMENTATION - Replaced with fitness.medoid.wg below
+# This version used CLAV::iv.xb for Xie-Beni index calculation.
+# Was replaced with a more efficient implementation using Within-Group (WG) validation.
 # fitness.medoid <- function(cluster_solution, gene_dmatrix) {
 #   elements <- nrow( gene_dmatrix )
 #   medoids <- length( cluster_solution )
@@ -115,6 +152,9 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
 # 
 #   return( XB )
 #   
+#   # ALTERNATIVE MANUAL IMPLEMENTATION - Not used
+#   # This was a manual calculation of Xie-Beni index for verification purposes.
+#   # The CLAV::iv.xb implementation above was used instead.
 #   # Manual version below
 #   # check if this distances are correct, shouldn't it sum only the cluster elements?
 #   # i.e the minimum in each one
@@ -132,10 +172,20 @@ medoid.fix.representation <- function(gene_list, medoid_solution, num_clusters) 
 #   return( XB )
 # }
 
+#' Calculate fitness using Within-Group (WG) validation index
+#' 
+#' Uses a modified Xie-Beni index that considers the ratio of distances
+#' within clusters. Implements caching to avoid redundant calculations.
+#' 
+#' @param cluster_solution Vector of medoid gene IDs
+#' @param gene_dmatrix Distance matrix between genes (data.table format)
+#' @param type String identifier for caching ('expression' or 'biological')
+#' @return Float value representing the WG index (lower is better)
+#' 
 fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   if(is.character(type)) {
     # Revisar si se ha calculado esta solución con esta matriz anteriormente
-    key <- paste(paste(sort(cluster_solution), collapse=","), type)
+    key <- paste(paste(sort(unlist(cluster_solution)), collapse=","), type)
     if(has.key(key, fitness_hash)) {
       return( fitness_hash[[key]] )
     }
@@ -145,8 +195,15 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   # Calcular distancia mínima de cada gene a su cluster.
   elements <- nrow( gene_dmatrix )
   medoids <- length( cluster_solution )
-  # gene_dmatrix <- data.table(gene_dmatrix, keep.rownames=TRUE)
-  distance_to_medoids <- gene_dmatrix[gene_dmatrix$rn %in% cluster_solution]
+  # Ensure data.table with rn column for fast medoid lookup
+  if (!is.data.table(gene_dmatrix)) {
+    gene_dmatrix <- data.table(gene_dmatrix, keep.rownames = TRUE)
+  }
+  if (!"rn" %in% names(gene_dmatrix)) {
+    gene_dmatrix$rn <- rownames(gene_dmatrix)
+  }
+  cluster_solution <- as.character(unlist(cluster_solution))
+  distance_to_medoids <- gene_dmatrix[gene_dmatrix$rn %in% cluster_solution, !("rn"), with=FALSE]
   # distance_to_medoids <- gene_dmatrix[rownames(gene_dmatrix) %in% cluster_solution, ] # optimize this line
   
   # Promediar distancia de un gen a su cluster con la minima distancia a otro cluster
@@ -174,6 +231,16 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   return( WG )
 }
 
+#' Apply NSGA-II sorting and crowding distance calculation
+#' 
+#' Evaluates objectives, performs non-dominated sorting, and calculates
+#' crowding distance for diversity preservation.
+#' 
+#' @param population Matrix of solutions (medoids only)
+#' @param dmatrix_expression Expression-based distance matrix
+#' @param dmatrix_biological Biology-based distance matrix
+#' @return Population with objectives, rank, and crowding distance columns
+#' 
 operator.nsga2.sorting.and.crowding <- function(population, dmatrix_expression, dmatrix_biological) {
   
   population_size <- nrow(population)
@@ -196,6 +263,24 @@ operator.nsga2.sorting.and.crowding <- function(population, dmatrix_expression, 
   return( population )
 }
 
+#' Apply local search operator to the population
+#' 
+#' Dispatches to the appropriate local search algorithm (PLS, MOSA, MOLS, ensemble)
+#' based on the local_search parameter.
+#' 
+#' @param should_apply Boolean whether to apply local search
+#' @param population_size Integer size of the population
+#' @param population Matrix of solutions
+#' @param num_clusters Integer number of clusters
+#' @param gene_list Vector of all available genes
+#' @param dmatrix_expression Expression distance matrix
+#' @param dmatrix_biological Biological distance matrix
+#' @param neighborhood_matrix Adjacency matrix of neighboring genes
+#' @param local_search String identifier of which LS algorithm to use
+#' @param ls_params List of parameters for the local search
+#' @param debug Boolean for debug output
+#' @return Population with local search applied
+#' 
 operator.local.search <- function(should_apply, population_size, population, num_clusters, gene_list, dmatrix_expression, dmatrix_biological, neighborhood_matrix, local_search, ls_params = NULL, debug = FALSE) {
   if( should_apply == TRUE && !is.null(local_search) ) {
     population <- population[,1:num_clusters]
@@ -235,6 +320,18 @@ operator.local.search <- function(should_apply, population_size, population, num
   return( population )
 }
 
+#' Perform uniform crossover on pairs of solutions
+#' 
+#' For each gene position, randomly decides whether to inherit from parent 1 or 2
+#' based on crossover_ratio.
+#' 
+#' @param gene_list Vector of all available genes
+#' @param population_size Integer number of offspring to generate
+#' @param num_clusters Integer number of medoids per solution
+#' @param mating_pool Matrix of parent solutions
+#' @param crossover_ratio Float probability of crossover per gene position
+#' @return Matrix of offspring solutions
+#' 
 operator.crossover.random <- function(gene_list, population_size, num_clusters, mating_pool, crossover_ratio) {
   population_size = round(population_size/2)
   population_children <- as.data.frame( matrix(0, population_size * 2, num_clusters), stringsAsFactors = FALSE )
@@ -264,11 +361,17 @@ operator.crossover.random <- function(gene_list, population_size, num_clusters, 
   return( population_children )
 }
 
+#' Apply mutation operator to offspring population
 #' 
+#' Randomly mutates genes in solutions with probability mutation_ratio.
+#' Ensures mutated gene is not already in the solution.
 #' 
+#' @param gene_list Vector of all available genes
+#' @param num_clusters Integer number of medoids per solution
+#' @param population_children Matrix of offspring solutions
+#' @param mutation_ratio Float probability of mutation per solution
+#' @return Mutated population
 #' 
-#' 
-# Contabilizar mutación
 operator.mutation.random <- function(gene_list, num_clusters, population_children, mutation_ratio) {
   for( i in nrow(population_children) ) {
     should_mutate <- stats::runif(1, 0, 1) <= mutation_ratio
@@ -293,6 +396,16 @@ operator.mutation.random <- function(gene_list, num_clusters, population_childre
   return( population_children )
 }
 
+#' Calculate population diversity using Jaccard similarity
+#' 
+#' Measures average similarity between all pairs of solutions in the population.
+#' Higher values indicate less diversity.
+#' 
+#' @param gene_list Vector of all available genes
+#' @param num_clusters Integer number of medoids per solution
+#' @param population Matrix of solutions
+#' @return Float average Jaccard similarity across all solution pairs
+#' 
 operator.diversify.population <- function(gene_list, num_clusters, population) {
   
   # Generar función para saber que tan similares son dos individuos d(s1, s2) = k - #elementos iguales
@@ -316,17 +429,29 @@ operator.diversify.population <- function(gene_list, num_clusters, population) {
   return( factor_similitud )
 }
 
+#' Tournament selection operator for mate selection
 #' 
+#' Selects solutions for mating pool using tournament selection based on
+#' rank and crowding distance.
 #' 
-#' 
+#' @param population Matrix of solutions with rank and crowding columns
+#' @param pool_size Integer number of solutions to select
+#' @param tour_size Integer size of each tournament
+#' @return Mating pool matrix
 #' 
 operator.selection <- function(population, pool_size, tour_size) {
   return( nsga2R::tournamentSelection(population, pool_size, tour_size) )
 }
 
+#' Merge parent and offspring populations
 #' 
+#' Combines two populations and removes/fixes any duplicate solutions.
 #' 
-#' 
+#' @param parent_pop Matrix of parent solutions
+#' @param child_pop Matrix of offspring solutions
+#' @param num_clusters Integer number of medoids per solution
+#' @param gene_list Vector of all available genes
+#' @return Combined population matrix
 #' 
 operator.join.populations <- function(parent_pop, child_pop, num_clusters, gene_list) {
   parent_pop <- parent_pop[, 1:num_clusters]
@@ -337,9 +462,16 @@ operator.join.populations <- function(parent_pop, child_pop, num_clusters, gene_
   return( mixed_pop )
 }
 
+#' Extract Pareto front and generate clustering assignments
 #' 
+#' Selects rank-1 solutions and assigns each gene to its closest medoid.
 #' 
-#' 
+#' @param population_size Integer size of the population
+#' @param num_clusters Integer number of clusters
+#' @param population Matrix of solutions with objectives and rank
+#' @param dmatrix_expression Expression distance matrix
+#' @param dmatrix_biological Biological distance matrix
+#' @return List with 'population' (Pareto front) and 'clustering' (assignments)
 #' 
 generate.results <- function(population_size, num_clusters, population, dmatrix_expression, dmatrix_biological) {
   
@@ -349,17 +481,30 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 
   # Mark to which cluster does each gene belong to in each solution
   frontier_clustering <- list(1:nrow(population))
-  
+
+  # Ensure dmatrix_expression is a data.table with rn column for medoid lookup
+  if (!is.data.table(dmatrix_expression)) {
+    dmatrix_expression <- data.table(dmatrix_expression, keep.rownames = TRUE)
+  }
+  if (!"rn" %in% names(dmatrix_expression)) {
+    dmatrix_expression$rn <- rownames(dmatrix_expression)
+  }
+
   elements <- nrow( dmatrix_expression )
   for( i in 1:nrow(population) ) {
-    cluster_solution <- population[i, 1:num_clusters]
-    distance_to_medoids <- dmatrix_expression[dmatrix_expression$rn %in% cluster_solution]
+    cluster_solution <- as.character(unlist(population[i, 1:num_clusters]))
+    distance_to_medoids <- dmatrix_expression[dmatrix_expression$rn %in% cluster_solution, !("rn"), with=FALSE]
     
     DT <- data.table(value=unlist(distance_to_medoids, use.names=FALSE), colid = rep(1:ncol(distance_to_medoids), each=nrow(distance_to_medoids)), rowid = 1:nrow(distance_to_medoids))
     setkey(DT, colid, value)
-    clustering <- (DT[J(unique(colid)), rowid, mult="first"])[-1]
-    
-    frontier_clustering[[i]] <- as.vector(clustering)
+    clustering_result <- DT[J(unique(colid)), rowid, mult="first"]
+
+    # In newer data.table, the join returns a plain vector (not a data.table)
+    if (is.data.table(clustering_result) || is.data.frame(clustering_result)) {
+      frontier_clustering[[i]] <- clustering_result[[1]]
+    } else {
+      frontier_clustering[[i]] <- clustering_result
+    }
   }
   
   return( 

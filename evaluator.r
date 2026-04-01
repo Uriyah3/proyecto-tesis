@@ -2,15 +2,28 @@ library(amap)
 library(mco)
 library(cluster)
 library(stringr)
-library(RDAVIDWebService)
 library(stats)
 source("nsga2.r")
+source("david_client.r")
 
+#' Normalize data to [0, 1] range using min-max normalization
+#' 
+#' @param data Numeric vector to normalize
+#' @return Normalized vector with values between 0 and 1
+#' 
 helper.normalize <- function(data) {
   return( (data - min(data)) / (max(data) - min(data)) )
 }
 
-# https://stackoverflow.com/questions/10256503/function-for-median-similar-to-which-max-and-which-min-extracting-median-r
+#' Find indices of median values in a vector
+#' 
+#' Similar to which.max/which.min but for median. Handles both odd and even
+#' length vectors.
+#' 
+#' @param x Numeric vector
+#' @return Index or indices of median value(s)
+#' @note Code from https://stackoverflow.com/questions/10256503/
+#' 
 which.median = function(x) {
   if (length(x) %% 2 != 0) {
     which(x == median(x))
@@ -41,6 +54,20 @@ which.best <- function(which.x, silhouette_results, population = NULL) {
   }
 }
 
+#' Evaluate multi-objective clustering results with biological significance
+#' 
+#' Calculates silhouette, hypervolume, and biological enrichment metrics.
+#' Selects best solution based on median silhouette and minimum biological index.
+#' 
+#' @param results List with $population and $clustering from NSGA-II
+#' @param dmatrix Distance matrix for silhouette calculation
+#' @param debug Boolean for debug output
+#' @param which.x Function to select solution (which.max, which.min, or 'best')
+#' @param dataset_name String dataset identifier for caching
+#' @param bio String biological source identifier for caching
+#' @param iter Integer iteration number for caching
+#' @return List with silhouette, hypervolume, biological metrics
+#' 
 evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE, which.x = which.max, dataset_name=NULL, bio=NULL, iter=NULL ) {
   
   silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter)
@@ -64,6 +91,20 @@ evaluator.multiobjective.clustering <- function( results, dmatrix, debug = FALSE
   return( metrics )
 }
 
+#' Evaluate multi-objective clustering without biological validation
+#' 
+#' Faster version that only calculates silhouette and hypervolume metrics.
+#' Used during algorithm execution when biological validation is too slow.
+#' 
+#' @param results List with $population and $clustering from NSGA-II
+#' @param dmatrix Distance matrix for silhouette calculation
+#' @param debug Boolean for debug output
+#' @param dataset_name String dataset identifier for caching
+#' @param bio String biological source identifier for caching
+#' @param iter Integer iteration number for caching
+#' @param which.x Unused parameter (kept for compatibility)
+#' @return List with silhouette and hypervolume metrics
+#' 
 evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL, which.x=NULL ) {
   
   silhouette_results <- evaluator.silhouette( results$clustering, dmatrix, debug=debug, dataset_name=dataset_name, bio=bio, iter=iter )
@@ -77,6 +118,18 @@ evaluator.multiobjective.clustering.no.bio <- function( results, dmatrix, debug 
   return( metrics )
 }
 
+#' Calculate hypervolume indicator for multi-objective optimization
+#' 
+#' Computes raw, normalized, and centered hypervolume of Pareto front.
+#' Results are cached to avoid redundant calculations.
+#' 
+#' @param population Matrix with objective columns
+#' @param debug Boolean for debug output
+#' @param dataset_name String dataset identifier for caching
+#' @param bio String biological source identifier for caching
+#' @param iter Integer iteration number for caching
+#' @return List with hypervolume, normalized_hypervolume, centered_hypervolume
+#' 
 evaluator.hypervolume <- function( population, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL ) {
   if (!is.null(metrics <- load.evaluation.from.cache(dataset_name, bio, iter, 'hypervolume'))) {
     return(metrics)
@@ -100,6 +153,19 @@ evaluator.hypervolume <- function( population, debug = FALSE, dataset_name=NULL,
   return( metrics )
 }
 
+#' Calculate silhouette coefficient for clustering solutions
+#' 
+#' Evaluates cluster quality for all solutions in the Pareto front.
+#' Higher silhouette values indicate better-defined clusters.
+#' 
+#' @param clustering List of cluster assignment vectors
+#' @param dmatrix Distance matrix between genes
+#' @param debug Boolean for debug output
+#' @param dataset_name String dataset identifier for caching
+#' @param bio String biological source identifier for caching
+#' @param iter Integer iteration number for caching
+#' @return List with silhouette statistics (max, mean, min, sd)
+#' 
 evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE, dataset_name=NULL, bio=NULL, iter=NULL ) {
   if (!is.null(metrics <- load.evaluation.from.cache(dataset_name, bio, iter, 'silhouette'))) {
     return(metrics)
@@ -109,8 +175,21 @@ evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE, dataset_na
   
   silhouette_indices = double(solution_count)
   for (c_index in 1:solution_count ) {
-    sil <- silhouette( clustering[[c_index]], dmatrix = as.matrix(dmatrix) )
-    silhouette_indices[c_index] <- summary(sil)$avg.width
+    if (is.data.table(dmatrix)) {
+      dmatrix_numeric <- as.matrix(dmatrix[, !names(dmatrix) %in% "rn", with=FALSE])
+    } else {
+      dmatrix_numeric <- as.matrix(dmatrix)
+    }
+    sil <- tryCatch(
+      silhouette( clustering[[c_index]], dmatrix = dmatrix_numeric ),
+      error = function(e) NULL
+    )
+    if (!is.null(sil) && inherits(sil, "silhouette")) {
+      sil_summary <- summary(sil)
+      silhouette_indices[c_index] <- sil_summary$avg.width
+    } else {
+      silhouette_indices[c_index] <- NA_real_
+    }
   }
   
   metrics <- list(
@@ -197,7 +276,7 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     } else {
       results[[cluster]] <- NA
       attempt <- 1
-      while( is.na(results[[cluster]]) && attempt <= 5 ) {
+      while( identical(results[[cluster]], NA) && attempt <= 5 ) {
         attempt <- attempt + 1
         try(
           results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
@@ -205,7 +284,8 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
       }
     }
     
-    if (!is.list(results[[cluster]]$enrichment) && is.na(results[[cluster]]$enrichment)) {
+    if (!is.list(results[[cluster]]) ||
+        (!is.list(results[[cluster]]$enrichment) && all(is.na(results[[cluster]]$enrichment)))) {
       results[[cluster]] <- NULL
       next
     }
@@ -219,10 +299,12 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
   }
   
   if (is.null(id)) {
-    enrichment <- unlist(lapply(results, function(result) {
+    # Only iterate over numeric-indexed cluster results (not summary entries)
+    cluster_indices <- which(sapply(results, is.list))
+    enrichment <- unlist(lapply(results[cluster_indices], function(result) {
       return(unlist(result$enrichment))
     }))
-    results$cluster_count <- sum( unlist(lapply(results, '[[', 'cluster_count')) )
+    results$cluster_count <- sum( unlist(lapply(results[cluster_indices], '[[', 'cluster_count')) )
     results$max_enrichment <- max(enrichment)
     results$mean_enrichment <- mean(enrichment)
     results$min_enrichment <- min(enrichment)
@@ -234,53 +316,23 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
   return( results )
 }
 
-#' Used to "bypass" the daily job limit in DAVID's web service
-jobs <<- 190
-email.list <<- NULL
-email.rotator <- function() {
-  if(is.null(email.list)) {
-    email.list <<- readLines('mail_list.txt')
-    email.start <<- Sys.time()
-  }
-  
-  jobs <<- jobs - 1
-  
-  if(jobs <= 0) {
-    email.list <<- email.list[-1]
-    jobs <<- 190
-    
-    wait.time <- sample(100:900, 1)
-    message(str_interp("Waiting ${wait.time} seconds to continue using next email"))
-    Sys.sleep(wait.time)
-  }
-  
-  # No quedan elementos al eliminar
-  if (length(email.list) == 0) {
-    message("Waiting until a day has passed to reuse the email list...")
-    email.end <- Sys.time()
-    time.to.day <- max(0, round(96000 - difftime(email.end,email.start,units="secs")))
-    message(str_interp("Wating ${time.to.day} seconds"))
-    Sys.sleep(time.to.day)
-    email.list <<- NULL
-    return(email.rotator())
-  }
-  
-  return(email.list[1])
-}
+source("credentials.r")
 
+#' Annotate gene list using DAVID web service
+#'
+#' Performs functional annotation and enrichment analysis via DAVID API.
+#' Returns cluster count and enrichment scores.
+#'
+#' @param gene_list Vector of ENTREZ gene IDs
+#' @param debug Boolean for debug output
+#' @return List with cluster_count and enrichment values
+#'
 evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
-  current.email = email.rotator()
+  david_email <- get.david.email()
   if(debug) {
-    message(str_interp("Current mail usage: ${current.email} ${jobs}/190"))
+    message(paste("Using DAVID email:", david_email))
   }
-  #https://david.ncifcrf.gov/webservice/services/DAVIDWebService/authenticate?args0=nicolas.mariangel@usach.cl
-  david <- DAVIDWebService$new(email=current.email, url='https://david.ncifcrf.gov/webservice/services/DAVIDWebService')
-  # Se cae a veces con el siguiente error: 
-  # [INFO] Unable to sendViaPost to url[https://david.ncifcrf.gov/webservice/services/DAVIDWebService]
-  # java.net.SocketTimeoutException: Read timed out
-  # Considerar que también tira este error cuando la lista de genes es > 3000
-  setTimeOut(david, 1500000)
-  
+
   if (length(gene_list) >= 3000) {
     return(
       list(
@@ -288,53 +340,26 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
         enrichment = list(0)
       )
     )
-    
   }
-  
-  
-  david$addList(gene_list, "ENTREZ_GENE_ID", listName = paste("Prueba de anotacion chart", sample(1:10000, 1)), listType = "Gene")
-  david$setAnnotationCategories(c("ENTREZ_GENE_ID", "BIOCARTA", "BBID", "BIOGRID_INTERACTION", "CGAP_EST_QUARTILE", "CGAP_SAGE_QUARTILE", "CHROMOSOME", "ENSEMBL_GENE_ID", "ENTREZ_GENE_SUMMARY", "GAD_DISEASE", "GAD_DISEASE_CLASS", "GENERIF_SUMMARY", "GNF_U133A_QUARTILE", "GOTERM_BP_ALL", "GOTERM_BP_DIRECT", "GOTERM_CC_ALL", "GOTERM_CC_DIRECT",  "GOTERM_MF_ALL", "GOTERM_MF_DIRECT", "HIV_INTERACTION", "HIV_INTERACTION_CATEGORY", "HIV_INTERACTION_PUBMED_ID", "KEGG_PATHWAY", "MINT", "OMIM_DISEASE", "PFAM", "PIR_SEQ_FEATURE", "PIR_SUMMARY", "PIR_SUPERFAMILY", "PRINTS", "PRODOM", "PROSITE", "PUBMED_ID", "REACTOME_PATHWAY", "SMART", "SP_COMMENT", "SP_COMMENT_TYPE", "SUPFAM", "TIGRFAMS", "UCSC_TFBS", "UNIGENE_EST_QUARTILE", "UP_KEYWORDS", "UP_SEQ_FEATURE", "UP_TISSUE"))
-  davidCluster <- david$getClusterReport()
-  
-  clusters <- davidCluster@cluster
-  enrichment <- sapply(clusters, `[[`, 'EnrichmentScore')
-  
-  if (length(enrichment) == 0) {
-    if (debug) {
-      message(paste("DAVID falló en encontrar enrichment o se cayó la biblioteca para la lista:", paste0(gene_list, collapse=', ')))
-    }
-    metrics <- list(
-      cluster_count = min(100, length(gene_list)),
-      enrichment = NA
-    )
-  } else {
-    metrics <- list(
-      cluster_count = length(clusters),
-      enrichment = enrichment
-    )
-  }
-  
-  return( metrics )
-  
-  # davidFunctionalChart <- david$getFunctionalAnnotationChart()
-  # davidFunctionalChart <- DAVIDFunctionalAnnotationChart(davidFunctionalChart)
-  
-  
-  # Valores importantes
-  #tests$PValue
-  #tests$Count
-  # y tests$X. que posiblemente es el % que aparece en la página al usar functional annotation chart
-  
-  # Falta agregar más categorías a este análisis. Probé agregando todas pero crashea
-  #david$setAnnotationCategories(david$getAllAnnotationCategoryNames())
-  #categories(davidFunChart2)
-  
-  #return(
-  #  annotation_chart <- davidFunctionalChart,
-  #  annotation_cluster <- davidCluster
-  #)
+
+  result <- david.annotate.genes(david_email, gene_list, debug = debug)
+  return(result)
 }
 
+#' Run metaheuristic algorithm multiple times and aggregate results
+#' 
+#' Executes the specified metaheuristic (usually nsga2.custom) for multiple
+#' runs and computes mean metrics across all runs.
+#' 
+#' @param metaheuristic Function to execute (e.g., nsga2.custom)
+#' @param meta_params List of parameters to pass to metaheuristic
+#' @param run_evaluator Function to evaluate results (default: no bio)
+#' @param runs Integer number of independent runs
+#' @param debug Boolean for debug output
+#' @param dataset_name String dataset identifier
+#' @param bio String biological source identifier
+#' @return List with aggregated metrics and individual run results
+#' 
 evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE, dataset_name = NULL, bio=NULL) {
   
   results <- lapply( 1:runs, function(n) {
@@ -360,15 +385,35 @@ evaluator.metaheuristics <- function(metaheuristic, meta_params, run_evaluator =
   })
   
   full_results <- results
-  #message( results )
-  mean_results <- unlist(results)
-  mean_results <- c(by(mean_results, names(mean_results), mean, na.rm = TRUE))
+  # Average only numeric metrics across runs (skip difftime, NULL, etc.)
+  mean_results <- tryCatch({
+    unlisted <- unlist(lapply(results, function(r) {
+      r$time <- as.numeric(r$time)
+      r
+    }))
+    c(by(unlisted, names(unlisted), function(x) mean(as.numeric(x), na.rm = TRUE)))
+  }, error = function(e) {
+    warning(paste("Could not compute mean_results:", e$message))
+    NA
+  })
   return( list(
     full_results = full_results,
     mean_results = mean_results
   ))
 }
 
+#' Save metaheuristic results to cache for later analysis
+#' 
+#' Stores population and clustering results from each run to .rda files.
+#' 
+#' @param dataset.name String dataset identifier
+#' @param identifier String biological source or algorithm variant
+#' @param metaheuristic Function that was executed
+#' @param meta_params List of parameters used
+#' @param runs Integer number of runs to save
+#' @param debug Boolean for debug output
+#' @return NULL (saves to files)
+#' 
 save.metaheuristic.results <- function(dataset.name, identifier, metaheuristic, meta_params, runs = 13, debug = FALSE) {
   lapply( 1:runs, function(n) {
     if (debug) {
@@ -392,6 +437,19 @@ save.metaheuristic.results <- function(dataset.name, identifier, metaheuristic, 
   })
 }
 
+#' Load and re-evaluate saved metaheuristic results
+#' 
+#' Reads previously saved results and applies evaluation metrics.
+#' Useful for post-hoc analysis without re-running experiments.
+#' 
+#' @param dataset.name String dataset identifier
+#' @param identifier String biological source or algorithm variant
+#' @param run_evaluator Function to evaluate results
+#' @param runs Integer number of runs to load
+#' @param debug Boolean for debug output
+#' @param skip.loading Boolean to skip loading files (use existing)
+#' @return List with aggregated metrics
+#' 
 reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, run_evaluator = evaluator.multiobjective.clustering.no.bio, runs = 13, debug = FALSE, skip.loading=FALSE) {
   if (!skip.loading) {
     dmatrix_expression <- expression.matrix(NULL, dataset=dataset.name)
@@ -455,6 +513,17 @@ store.evaluation.to.cache <- function(data, dataset.name, identifier, iteration,
   saveRDS(data, file.name)
 }
 
+#' Find solution with best silhouette for DAVID analysis
+#' 
+#' Loads cached results and identifies the solution with highest silhouette
+#' coefficient for biological validation.
+#' 
+#' @param dataset.name String dataset identifier
+#' @param identifier String biological source identifier
+#' @param evaluation String evaluation type (default: 'biological')
+#' @param runs Integer number of runs to search
+#' @return List with run number and solution index
+#' 
 find.best.solution.for.david <- function(dataset.name, identifier, evaluation = 'biological', runs=13) {
   dmatrix_expression <- NULL
   solutions <- lapply(1:runs, function(iteration) {

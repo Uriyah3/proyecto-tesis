@@ -1,2 +1,6 @@
-*
+# DisGeNET v7 data files (from 2020, before paywall)
+# These are included as fallback data for users without a DisGeNET license.
+# See README.md for details on DisGeNET access.
+!all_gene_disease_associations.tsv.gz
+!disgenet.all.v7.entrez.gmt
 !.gitignore

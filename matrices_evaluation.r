@@ -153,7 +153,7 @@ biological.matrix.fill.missing <- function(gene_list, bmatrix) {
 #' \code{gene_list}
 #'
 biological.matrix.go <- function(gene_list) {
-  d <- GOSemSim::godata('org.Hs.eg.db', ont="MF", computeIC=FALSE)
+  d <- GOSemSim::godata(annoDb='org.Hs.eg.db', ont="MF", computeIC=FALSE)
   matrix <- GOSemSim::mgeneSim(gene_list, semData=d, measure="Wang")
   # Transform the similarity matrix into a distance matrix 1-Wang
   matrix <- as.matrix(as.dist(1-matrix))
@@ -217,7 +217,7 @@ biological.matrix.kegg.pathway <- function(gene_list) {
 #' colnames and rownames.
 #' @note Don't forget to download stringdb related files from the stringdb website
 #' 
-helper.download.string <- function(version="11.0", species=9606, score_threshold = 0, input_directory = "stringdb/") {
+helper.download.string <- function(version="12.0", species=9606, score_threshold = 0, input_directory = "stringdb/") {
   cached_filename <- paste("cache/","stringdb-score-data.rda", sep="")
   if( file.exists(cached_filename) ) {
     return( readRDS(cached_filename) )
@@ -341,6 +341,9 @@ biological.matrix.disgenet.pathway <- function(gene_list) {
 #' Theses profiles are then compared the same way as gene-expression profiles,
 #' i.e. using abscorrelation to identify the distance between genes.
 #' 
+#' NOTE: As of 2025, DisGeNET requires account registration at https://www.disgenet.org/signup/
+#' This function uses cached DisGeNET data. Ensure cache file exists or download manually.
+#' 
 #' @param gene_list Vector of genes using their entrezgene_id.
 #' @return Data frame with biological distance between all pair of genes in \code{gene_list}
 #'
@@ -349,14 +352,24 @@ biological.matrix.disgenet.disease <- function(gene_list, nbproc = 2) {
   if( file.exists(disgenet_cache_filename) ) {
     gd_dist <- readRDS(disgenet_cache_filename)
   } else {
-    file <- STRINGdb::downloadAbsentFile('https://www.disgenet.org/static/disgenet_ap1/files/downloads/all_gene_disease_associations.tsv.gz', 'disgenet')
-    file_data <- read.table(file, header=TRUE, sep="\t", fill = TRUE, quote = "")
-    gene_disease_profiles <- dcast(file_data, geneId ~ diseaseId, value.var="score", fill=0)
-    gene_disease_profiles$Var.2 <- NULL
-    rownames(gene_disease_profiles) <- gene_disease_profiles$geneId
-    gene_disease_profiles$geneId <- NULL
-    gd_dist <- expression.matrix(gene_disease_profiles, nbproc=nbproc)
-    saveRDS(gd_dist, file = disgenet_cache_filename)
+    # NOTE: DisGeNET now requires account authentication.
+    # If you have DisGeNET account, download manually from:
+    # https://www.disgenet.org/static/disgenet_ap1/files/downloads/all_gene_disease_associations.tsv.gz
+    # Place in disgenet/ folder, then uncomment code below:
+    
+    # disgenet_file_path <- 'disgenet/all_gene_disease_associations.tsv.gz'
+    # if (!file.exists(disgenet_file_path)) {
+    #   stop("DisGeNET data not found. Please download manually from https://www.disgenet.org")
+    # }
+    # file_data <- read.table(disgenet_file_path, header=TRUE, sep="\t", fill = TRUE, quote = "")
+    # gene_disease_profiles <- dcast(file_data, geneId ~ diseaseId, value.var="score", fill=0)
+    # gene_disease_profiles$Var.2 <- NULL
+    # rownames(gene_disease_profiles) <- gene_disease_profiles$geneId
+    # gene_disease_profiles$geneId <- NULL
+    # gd_dist <- expression.matrix(gene_disease_profiles, nbproc=nbproc)
+    # saveRDS(gd_dist, file = disgenet_cache_filename)
+    
+    stop("DisGeNET cache not found at: ", disgenet_cache_filename, "\nDisGeNET now requires account registration (2025). Download manually from https://www.disgenet.org/signup/")
   }
   matrix <- gd_dist[ rownames(gd_dist) %in% gene_list, colnames(gd_dist) %in% gene_list ]
   

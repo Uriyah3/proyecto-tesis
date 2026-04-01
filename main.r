@@ -135,6 +135,13 @@ datasets <- list(
 )
 
 
+#' Run a default test case using Leukemia GSE28497 dataset
+#' 
+#' Convenience function for quick testing. Loads a sample dataset and runs
+#' NSGA-II with PLS local search using both expression and GO biological matrices.
+#' 
+#' @return List with clustering results and metrics
+#' 
 run.default <- function() {
   test_file_name <- 'Leukemia_GSE28497.csv-1-all-sample-5-percent'
   test_file <- paste("data/training/samples/", test_file_name, '.csv', sep="")
@@ -199,9 +206,14 @@ run.r.sample.test <- function() {
 #'   chip (Name of the platform used, example: "GPL_570"), type ("evaluation" or
 #'   "training") and cancer
 load.dataset <- function(dataset) {
-  
+
   file_name <- paste(dataset$name, '.csv.gz', sep='')
   file_path <- paste('data/', dataset$type, '/', file_name, sep="")
+  if (!file.exists(file_path)) {
+    # Datasets may be in either training/ or evaluation/ regardless of type label
+    alt_type <- ifelse(dataset$type == "evaluation", "training", "evaluation")
+    file_path <- paste('data/', alt_type, '/', file_name, sep="")
+  }
   data <- read.dataset(file_path)
   
   data <- clean.and.translate.entrez.id(data, dataset$chip)
@@ -318,6 +330,14 @@ compare.gpl.platforms <- function() {
   chips_comparison
 }
 
+#' Test biological matrix calculation methods
+#' 
+#' Development/debugging function to test different biological databases
+#' and their distance matrix calculations.
+#' 
+#' @param debug Boolean for debug output
+#' @return NULL (prints test results)
+#' 
 bio.test <- function(debug = TRUE)
 {
   dataset <- datasets$GSE6919_U95C
@@ -407,6 +427,15 @@ best_params <- list(
   )
 )
 
+#' Calculate and save metaheuristic results for multiple datasets
+#' 
+#' Runs the metaheuristic on specified datasets and stores results to cache.
+#' Used for batch processing of experiments.
+#' 
+#' @param datasets_to_process List of dataset identifiers
+#' @param debug Boolean for debug output
+#' @return NULL (saves results to files)
+#' 
 calculate.results <- function(datasets_to_process, debug=FALSE) {
   for(process_dataset in datasets_to_process) {
     dataset <- datasets[[process_dataset]]
@@ -432,6 +461,17 @@ calculate.results <- function(datasets_to_process, debug=FALSE) {
   }
 }
 
+#' Load and evaluate cached metaheuristic results
+#' 
+#' Re-evaluates previously saved results with specified evaluator function.
+#' Useful for post-hoc analysis.
+#' 
+#' @param datasets_to_process List of dataset identifiers
+#' @param runs Integer number of runs to evaluate
+#' @param evaluator Function to use for evaluation
+#' @param debug Boolean for debug output
+#' @return Aggregated evaluation metrics
+#' 
 evaluate.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multiobjective.clustering.no.bio, debug=FALSE) {
   for(process_dataset in datasets_to_process) {
     dataset <- datasets[[process_dataset]]
@@ -444,6 +484,16 @@ evaluate.results <- function(datasets_to_process, runs=13, evaluator=evaluator.m
   }
 }
 
+#' Display evaluation results for cached metaheuristic runs
+#' 
+#' Loads and prints metrics from saved results without re-running evaluation.
+#' 
+#' @param datasets_to_process List of dataset identifiers
+#' @param runs Integer number of runs to display
+#' @param evaluator Function used for evaluation
+#' @param debug Boolean for debug output
+#' @return NULL (prints results)
+#' 
 show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multiobjective.clustering.no.bio, debug=FALSE) {
   for(process_dataset in datasets_to_process) {
     dataset <- datasets[[process_dataset]]
@@ -487,6 +537,15 @@ show.results <- function(datasets_to_process, runs=13, evaluator=evaluator.multi
 # evaluate.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=TRUE, runs=1, evaluator = evaluator.multiobjective.clustering)
 # show.results(list('GSE31189', 'GSE50161', 'GSE6919_U95Av2'), debug=FALSE, runs=1, evaluator = evaluator.multiobjective.clustering)
 
+#' Create comparison plots between NSGA-II and k-medoids results
+#' 
+#' Generates scatter plots comparing objective values.
+#' 
+#' @param nsga_results Results from NSGA-II algorithm
+#' @param kobj_exp K-medoids objective (expression)
+#' @param kobj_bio K-medoids objective (biological)
+#' @return NULL (displays or saves plot)
+#' 
 plot.compare.kmedoids <- function(nsga_results, kobj_exp, kobj_bio) {
   d <- nsga_results$population[, colnames(nsga_results$population) %in% c('objective_exp', 'objective_bio')]
   d2 <- as.data.frame(cbind(kobj_exp, kobj_bio))
@@ -494,11 +553,19 @@ plot.compare.kmedoids <- function(nsga_results, kobj_exp, kobj_bio) {
     geom_step(data=d, mapping=aes(x=objective_exp, y=objective_bio)) +
     geom_step(data=d, mapping=aes(x=objective_exp, y=objective_bio), direction="vh", linetype=3) +
     geom_point(data=d, mapping=aes(x=objective_exp, y=objective_bio, color="Frontera \nde Pareto"), size=3) + xlim(0, 1) + ylim(0, 1) +
-    geom_point(data=d2, mapping=aes(x=kobj_exp, y=kobj_bio, color="K-medoides"), size=3) + xlab("Objetivo expresión") + ylab("Objetivo biológico") + ggtitle("Posicionar solución de k-medoides en la frontera\n de Pareto del algoritmo") + labs(color = "Solución") +theme(text = element_text(size=15))
+    geom_point(data=d2, mapping=aes(x=kobj_exp, y=kobj_bio, color="K-medoides"), size=3) + xlab("Objetivo expresiï¿½n") + ylab("Objetivo biolï¿½gico") + ggtitle("Posicionar soluciï¿½n de k-medoides en la frontera\n de Pareto del algoritmo") + labs(color = "Soluciï¿½n") +theme(text = element_text(size=15))
   
   ggsave(str_interp("comparacion_k_medoids.png"), device="png", path="plots", width=6.6, height=5.5)
 }
 
+#' Profile function execution time
+#' 
+#' Development utility to measure performance of functions.
+#' 
+#' @param fn Function to profile
+#' @param times Integer number of times to execute
+#' @return Profiling results
+#' 
 profiler <- function(fn, times=1000)
 {
   start.time <- Sys.time()
@@ -540,6 +607,14 @@ profiler <- function(fn, times=1000)
 #moc.gapbk.evaluate('GSE6919_U95Av2')
 
 
+#' Create heatmap for best solution in a dataset
+#' 
+#' Loads results and generates heatmap visualization of gene clusters.
+#' 
+#' @param dataset.key String key from datasets list
+#' @param biological.identifier String biological source identifier
+#' @return ComplexHeatmap object
+#' 
 create.heatmap.for.best.solution <- function(dataset.key, biological.identifier) {
   dataset <- datasets[[dataset.key]]
   dataset.name <- dataset$name
@@ -547,7 +622,7 @@ create.heatmap.for.best.solution <- function(dataset.key, biological.identifier)
   filename <- build.saved.results.filename(dataset.name, biological.identifier, best_iteration)
   iteration_results <- readRDS(filename)
   
-  message("Cargando mejor solución")
+  message("Cargando mejor soluciï¿½n")
   silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, NULL, dataset_name=dataset.name, bio=biological.identifier, iter=best_iteration )
   solution_index <- which.best('best', silhouette_results$silhouette, iteration_results$nsga$population)
   best_solution <- iteration_results$nsga$clustering[[solution_index]]
@@ -603,6 +678,12 @@ create.heatmap.from.solution <- function(df, clustering.solution, filename="heat
   dev.off()
 }
 
+#' Create boxplot comparing KEGG and MOC-GaPBK results
+#' 
+#' Visualization function for thesis comparisons.
+#' 
+#' @return NULL (saves plot to file)
+#' 
 boxplot.kegg.vs.moc <- function() {
   ev.datasets <- list('GSE89116', 'GSE53757', 'GSE31189', 'GSE50161', 'GSE6919_U95Av2')
   moc.silhouette.max <- c(0.050, 0.114, 0.121, 0.163, 0.198)
@@ -631,7 +712,7 @@ boxplot.kegg.vs.moc <- function() {
     png(filename=str_interp("plots/${dataset.name}_kegg_moc_silueta_maxima.png"), width = 440, height = 350)
     data <- list("Algoritmo Propuesto\n(KEGG)"=max_silhouette, "MOC-GaPBK\n(GO)"=moc.silhouette.max[[i]])
     par(mgp=c(3,2,0), cex.lab=1.2, cex.axis=1.2, cex.main=1.3)
-    boxplot(data, ylab='Silueta máxima', ylim=c(0,0.76), main=paste0(dataset$name, ' Silueta máxima'), col=c('lightblue', 'gray')) # xlab = 'Algoritmo'
+    boxplot(data, ylab='Silueta mï¿½xima', ylim=c(0,0.76), main=paste0(dataset$name, ' Silueta mï¿½xima'), col=c('lightblue', 'gray')) # xlab = 'Algoritmo'
     dev.off()
   }
 }

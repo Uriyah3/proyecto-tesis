@@ -1,3 +1,6 @@
+# Credentials
+.env
+
 /build/
 build_*/
 build-*/

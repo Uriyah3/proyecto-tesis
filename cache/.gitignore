@@ -1,2 +1,13 @@
-*
+*-sample-*
+metaheuristic-*
+Prostate_*
+*_results*
+*-results*
+*results-*
+resultados*
+moc_gapbk_*
+por Prostate*
+k-means-long.rda
+k-medoids-clustering.rda
+translation_ineffectiveness
 !.gitignore

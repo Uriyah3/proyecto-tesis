@@ -136,7 +136,9 @@ check("DAVID API reachable (authenticate attempt)", {
   cat("[auth=", result, "] ", sep = "")
 })
 
-email <- readLines("mail_list.txt")[1]
+source("credentials.r")
+email <- tryCatch(get.david.email(), error = function(e) { cat("No email configured:", e$message, "\n"); NULL })
+if (is.null(email)) stop("Configure DAVID_EMAIL in .env first")
 check(paste0("DAVID auth with mail_list.txt (", email, ")"), {
   david.new.session()
   result <- david.authenticate(email)

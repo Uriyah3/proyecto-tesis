@@ -13,7 +13,6 @@ load.credentials <- function(env_file = ".env") {
       if (length(parts) >= 2) {
         key <- trimws(parts[1])
         value <- trimws(paste(parts[-1], collapse = "="))
-        Sys.setenv(key = value)  # doesn't work with variable names
         do.call(Sys.setenv, setNames(list(value), key))
       }
     }

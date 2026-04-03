@@ -18,7 +18,7 @@ library(xml2)
 DAVID_BASE_URL <- "https://davidbioinformatics.nih.gov/webservice/services/DAVIDWebService"
 
 # Session handle (cookie jar) -- shared across all calls in a workflow.
-david_session <<- NULL
+david_session <- NULL
 
 # ---------------------------------------------------------------------------
 # Session management
@@ -209,10 +209,10 @@ david.annotate.genes <- function(email, gene_list,
                                  debug = FALSE) {
   david.new.session()
   if (!david.authenticate(email)) {
-    if (debug) message(paste("DAVID: Authentication failed for", email))
+    message(paste("DAVID: Authentication failed for", email))
     return(list(cluster_count = NA, enrichment = NA))
   }
-  list_name <- paste("gene_list", sample(1:10000, 1))
+  list_name <- paste0("gl_", format(Sys.time(), "%H%M%S"), "_", sample(1:99999, 1))
   mapped <- david.add.list(gene_list, "ENTREZ_GENE_ID", list_name, 0L)
   if (is.na(mapped)) {
     if (debug) message("DAVID: Failed to upload gene list")
@@ -221,10 +221,10 @@ david.annotate.genes <- function(email, gene_list,
   if (debug) message(paste("DAVID: Mapped", mapped, "of", length(gene_list), "genes"))
   david.set.categories(categories)
   clusters <- david.get.term.cluster.report()
-  enrichment <- sapply(clusters, `[[`, "EnrichmentScore")
+  enrichment <- vapply(clusters, `[[`, numeric(1), 'EnrichmentScore')
   if (length(enrichment) == 0) {
     if (debug) message("DAVID: No enrichment clusters found")
-    return(list(cluster_count = min(100, length(gene_list)), enrichment = NA))
+    return(list(cluster_count = 0L, enrichment = NA))
   }
   return(list(cluster_count = length(clusters), enrichment = enrichment))
 }

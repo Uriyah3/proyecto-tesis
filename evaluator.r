@@ -48,6 +48,7 @@ which.best <- function(which.x, silhouette_results, population = NULL) {
         }
       }
     }
+    if (best_solution_index == 0) return(which.max(silhouette_results)[1])
     return(best_solution_index)
   } else {
     return(which.x(silhouette_results)[1])
@@ -174,15 +175,15 @@ evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE, dataset_na
   solution_count <- length(clustering)
   
   silhouette_indices = double(solution_count)
+  if (is.data.table(dmatrix)) {
+    dmatrix_numeric <- as.matrix(dmatrix[, !names(dmatrix) %in% "rn", with=FALSE])
+  } else {
+    dmatrix_numeric <- as.matrix(dmatrix)
+  }
   for (c_index in 1:solution_count ) {
-    if (is.data.table(dmatrix)) {
-      dmatrix_numeric <- as.matrix(dmatrix[, !names(dmatrix) %in% "rn", with=FALSE])
-    } else {
-      dmatrix_numeric <- as.matrix(dmatrix)
-    }
     sil <- tryCatch(
       silhouette( clustering[[c_index]], dmatrix = dmatrix_numeric ),
-      error = function(e) NULL
+      error = function(e) { message(paste("Silhouette failed for solution", c_index, ":", e$message)); NULL }
     )
     if (!is.null(sil) && inherits(sil, "silhouette")) {
       sil_summary <- summary(sil)
@@ -194,10 +195,10 @@ evaluator.silhouette <- function( clustering, dmatrix, debug = FALSE, dataset_na
   
   metrics <- list(
     silhouette = silhouette_indices,
-    max_silhouette = max(silhouette_indices),
-    mean_silhouette = mean(silhouette_indices),
-    min_silhouette = min(silhouette_indices),
-    sd_silhouette = sd(silhouette_indices)
+    max_silhouette = max(silhouette_indices, na.rm = TRUE),
+    mean_silhouette = mean(silhouette_indices, na.rm = TRUE),
+    min_silhouette = min(silhouette_indices, na.rm = TRUE),
+    sd_silhouette = sd(silhouette_indices, na.rm = TRUE)
   )
   store.evaluation.to.cache(metrics, dataset_name, bio, iter, 'silhouette')
   return( metrics )
@@ -278,9 +279,15 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
       attempt <- 1
       while( identical(results[[cluster]], NA) && attempt <= 5 ) {
         attempt <- attempt + 1
-        try(
-          results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug )
+        tryCatch(
+          results[[cluster]] <- evaluator.biological.anotate.list( gene_list, debug ),
+          error = function(e) {
+            message(paste("DAVID attempt", attempt, "for cluster", cluster, "failed:", e$message))
+          }
         )
+      }
+      if (identical(results[[cluster]], NA)) {
+        message(paste("All DAVID attempts failed for cluster", cluster, "with", length(gene_list), "genes. Skipping."))
       }
     }
     
@@ -304,6 +311,15 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     enrichment <- unlist(lapply(results[cluster_indices], function(result) {
       return(unlist(result$enrichment))
     }))
+    if (length(enrichment) == 0) {
+      results$cluster_count <- 0L
+      results$max_enrichment <- NA_real_
+      results$mean_enrichment <- NA_real_
+      results$min_enrichment <- NA_real_
+      results$sd_enrichment <- NA_real_
+      store.evaluation.to.cache(results, dataset_name, bio, iter, 'biological')
+      return(results)
+    }
     results$cluster_count <- sum( unlist(lapply(results[cluster_indices], '[[', 'cluster_count')) )
     results$max_enrichment <- max(enrichment)
     results$mean_enrichment <- mean(enrichment)
@@ -334,10 +350,11 @@ evaluator.biological.anotate.list <- function( gene_list, debug = FALSE ) {
   }
 
   if (length(gene_list) >= 3000) {
+    message(paste("Gene list too large for DAVID (", length(gene_list), "genes). Skipping."))
     return(
       list(
-        cluster_count = min(length(gene_list), 100),
-        enrichment = list(0)
+        cluster_count = 0L,
+        enrichment = NA
       )
     )
   }
@@ -479,8 +496,16 @@ reconstruct.metaheuristic.saved.results <- function(dataset.name, identifier, ru
   
   full_results <- results
   
-  mean_results <- unlist(results)
-  mean_results <- c(by(mean_results, names(mean_results), mean, na.rm = TRUE))
+  mean_results <- tryCatch({
+    unlisted <- unlist(lapply(results, function(r) {
+      r$time <- as.numeric(r$time)
+      r
+    }))
+    c(by(unlisted, names(unlisted), function(x) mean(as.numeric(x), na.rm = TRUE)))
+  }, error = function(e) {
+    warning(paste("Could not compute mean_results:", e$message))
+    NA
+  })
   return( list(
     full_results = full_results,
     mean_results = mean_results
@@ -536,7 +561,7 @@ find.best.solution.for.david <- function(dataset.name, identifier, evaluation = 
     )
     if (is.null(silhouette_results) && is.null(dmatrix_expression)) {
       # esta línea no funciona porque no se ha definido el objeto dataset
-      dmatrix_expression <- expression.matrix(NULL, dataset=dataset$name)
+      dmatrix_expression <- expression.matrix(NULL, dataset=dataset.name)
       silhouette_results <- evaluator.silhouette( iteration_results$nsga$clustering, dmatrix_expression, dataset_name=dataset.name, bio=identifier, iter=iteration )
     }
     

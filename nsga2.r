@@ -12,7 +12,9 @@ source("globals.r")
 tryCatch({
   sourceCpp("performance.cpp")
 }, error = function(e) {
-  warning("C++ optimization not available. Install Rtools for better performance.")
+  stop("C++ compilation failed. Rtools is REQUIRED — Rmcalc() and clusteringCalc() ",
+       "have no R fallback. Install Rtools from https://cran.r-project.org/bin/windows/Rtools/\n",
+       "Error: ", e$message)
 })
 
 # Create counters to test algorithm's performance
@@ -198,9 +200,6 @@ fitness.medoid.wg <- function(cluster_solution, gene_dmatrix, type=NULL) {
   # Ensure data.table with rn column for fast medoid lookup
   if (!is.data.table(gene_dmatrix)) {
     gene_dmatrix <- data.table(gene_dmatrix, keep.rownames = TRUE)
-  }
-  if (!"rn" %in% names(gene_dmatrix)) {
-    gene_dmatrix$rn <- rownames(gene_dmatrix)
   }
   cluster_solution <- as.character(unlist(cluster_solution))
   distance_to_medoids <- gene_dmatrix[gene_dmatrix$rn %in% cluster_solution, !("rn"), with=FALSE]
@@ -486,10 +485,6 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
   if (!is.data.table(dmatrix_expression)) {
     dmatrix_expression <- data.table(dmatrix_expression, keep.rownames = TRUE)
   }
-  if (!"rn" %in% names(dmatrix_expression)) {
-    dmatrix_expression$rn <- rownames(dmatrix_expression)
-  }
-
   elements <- nrow( dmatrix_expression )
   for( i in 1:nrow(population) ) {
     cluster_solution <- as.character(unlist(population[i, 1:num_clusters]))
@@ -501,7 +496,7 @@ generate.results <- function(population_size, num_clusters, population, dmatrix_
 
     # In newer data.table, the join returns a plain vector (not a data.table)
     if (is.data.table(clustering_result) || is.data.frame(clustering_result)) {
-      frontier_clustering[[i]] <- clustering_result[[1]]
+      frontier_clustering[[i]] <- clustering_result[["rowid"]]
     } else {
       frontier_clustering[[i]] <- clustering_result
     }

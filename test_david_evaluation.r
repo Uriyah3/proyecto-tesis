@@ -32,7 +32,7 @@ cat("May take 15-30 minutes depending on DAVID responsiveness.\n\n"); flush.cons
 t1 <- system.time({
   full_eval <- tryCatch(
     evaluator.multiobjective.clustering(nsga_results, dmatrix_exp, debug = TRUE,
-      dataset_name = dataset$name, bio = "kegg"),
+      dataset_name = dataset$name, bio = "kegg", iter = 1),
     error = function(e) { cat("ERROR:", e$message, "\n"); NULL }
   )
 })

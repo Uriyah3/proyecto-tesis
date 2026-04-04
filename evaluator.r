@@ -525,6 +525,7 @@ build.evaluation.cache.filename <- function(dataset.name, identifier, iteration,
 }
 
 load.evaluation.from.cache <- function(dataset.name, identifier, iteration, evaluation) {
+  if (is.null(dataset.name) || is.null(identifier) || is.null(iteration)) return(NULL)
   file.name <- build.evaluation.cache.filename(dataset.name, identifier, iteration, evaluation)
   if( file.exists(file.name) ) {
     return( readRDS(file.name) )
@@ -534,6 +535,7 @@ load.evaluation.from.cache <- function(dataset.name, identifier, iteration, eval
 }
 
 store.evaluation.to.cache <- function(data, dataset.name, identifier, iteration, evaluation) {
+  if (is.null(dataset.name) || is.null(identifier) || is.null(iteration)) return(invisible(NULL))
   file.name <- build.evaluation.cache.filename(dataset.name, identifier, iteration, evaluation)
   saveRDS(data, file.name)
 }

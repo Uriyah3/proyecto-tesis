@@ -298,10 +298,12 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
     }
     
     if (is.null(id)) {
-      results[[cluster]]$max_enrichment <- max(results[[cluster]]$enrichment)
-      results[[cluster]]$mean_enrichment <- mean(results[[cluster]]$enrichment)
-      results[[cluster]]$min_enrichment <- min(results[[cluster]]$enrichment)
-      results[[cluster]]$sd_enrichment <- sd(results[[cluster]]$enrichment)
+      enrich_finite <- results[[cluster]]$enrichment[is.finite(results[[cluster]]$enrichment)]
+      if (length(enrich_finite) == 0) enrich_finite <- 0
+      results[[cluster]]$max_enrichment <- max(enrich_finite)
+      results[[cluster]]$mean_enrichment <- mean(enrich_finite)
+      results[[cluster]]$min_enrichment <- min(enrich_finite)
+      results[[cluster]]$sd_enrichment <- sd(enrich_finite)
     }
   }
   
@@ -321,10 +323,13 @@ evaluator.biological.significance <- function( clustering, full_gene_list, datas
       return(results)
     }
     results$cluster_count <- sum( unlist(lapply(results[cluster_indices], '[[', 'cluster_count')) )
-    results$max_enrichment <- max(enrichment)
-    results$mean_enrichment <- mean(enrichment)
-    results$min_enrichment <- min(enrichment)
-    results$sd_enrichment <- sd(enrichment)
+    # Filter out Inf values — DAVID occasionally returns Inf for perfect matches
+    enrichment_finite <- enrichment[is.finite(enrichment)]
+    if (length(enrichment_finite) == 0) enrichment_finite <- 0
+    results$max_enrichment <- max(enrichment_finite)
+    results$mean_enrichment <- mean(enrichment_finite)
+    results$min_enrichment <- min(enrichment_finite)
+    results$sd_enrichment <- sd(enrichment_finite)
     
     store.evaluation.to.cache(results, dataset_name, bio, iter, 'biological')
   }

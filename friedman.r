@@ -162,8 +162,12 @@ all.mean.ranking <- t(structure(c(2, 4, 1, 3, 5,
                                  3.25, 4.75, 1, 3.5, 2.5), .Dim = c(5L, 5L), 
                                .Dimnames = list(c("GO", "STRING", "KEGG", "DisGeNET", "Base"), c("Max sil", "Mean sil", "groups", "Max enrichment", "Mean enrichment"))))
 
-friedman.test.with.post.hoc(max.silhouette)
-friedman.test.with.post.hoc(mean.silhouette, metrica.nombre = 'Silueta promedio')
-friedman.test.with.post.hoc(david.groups, metrica.nombre = 'DAVID #grupos', alpha=0.1)
-friedman.test.with.post.hoc(david.max.enrichment, metrica.nombre = 'DAVID enrichment máximo', alpha=0.1)
-friedman.test.with.post.hoc(david.mean.enrichment, metrica.nombre = 'DAVID enrichment promedio', alpha=0.1)
+#' Run all Friedman tests on the thesis hardcoded data
+#' Call this after sourcing friedman.r and main.r
+run.all.friedman.tests <- function() {
+  friedman.test.with.post.hoc(max.silhouette)
+  friedman.test.with.post.hoc(mean.silhouette, metrica.nombre = 'Silueta promedio')
+  friedman.test.with.post.hoc(david.groups, metrica.nombre = 'DAVID #grupos', alpha=0.1)
+  friedman.test.with.post.hoc(david.max.enrichment, metrica.nombre = 'DAVID enrichment máximo', alpha=0.1)
+  friedman.test.with.post.hoc(david.mean.enrichment, metrica.nombre = 'DAVID enrichment promedio', alpha=0.1)
+}

@@ -33,6 +33,19 @@ run.sampling <- function(samples_per_file = 10, sampling_percent = 5, minimum_ro
 
 #' Generates multiples samples using the data from \code{dataset_file}
 #' @param dataset_file Path to the file to be sampled.
+#' Generate multiple random samples from a dataset
+#' 
+#' Creates sampled versions by selecting random subsets of rows and columns.
+#' Used to create smaller datasets for faster experimentation.
+#' 
+#' @param dataset_file String path to dataset file
+#' @param number_of_samples Integer how many samples to generate
+#' @param sampling_percent Float percentage to sample (e.g., 5 for 5%)
+#' @param minimum_row_size Integer minimum rows after sampling
+#' @param minimum_col_size Integer minimum columns after sampling
+#' @param sample_dir String directory to save samples
+#' @return NULL (saves files to disk)
+#' 
 generate.samples <- function(dataset_file, number_of_samples, sampling_percent, minimum_row_size, minimum_col_size, sample_dir = "data/training/samples") {
   data <- read.dataset(dataset_file)
   output_file <- tools::file_path_sans_ext(basename(dataset_file))
@@ -62,6 +75,16 @@ generate.samples <- function(dataset_file, number_of_samples, sampling_percent, 
 #' @param rows Amount of rows to sample from \code{data}
 #' @param cols Amount of columns to sample from \code{data}
 #' @param output_file Where the sampled data is stored
+#' Generate and save a single sampled dataset
+#' 
+#' Internal helper to create one sample file.
+#' 
+#' @param data Data frame of original data
+#' @param rows Integer number of rows to sample
+#' @param cols Integer number of columns to sample
+#' @param output_file String output filepath
+#' @return NULL (saves file)
+#' 
 generate.plus.save.sample <- function(data, rows, cols, output_file) {
   sampled_data <- data[sample(nrow(data), rows), sample(ncol(data), cols)]
   write.csv(sampled_data, output_file, row.names = TRUE, quote = FALSE)

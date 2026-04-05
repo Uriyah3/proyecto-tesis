@@ -61,4 +61,5 @@ if (!is.null(full_eval)) {
   }
 } else {
   cat("\nFull evaluation failed.\n")
+  quit(status = 1, save = "no")
 }

@@ -21,9 +21,16 @@ cat(" OK\n")
 cat("\n===ALL CORE FILES LOADED SUCCESSFULLY===\n\n")
 
 # Try loading a small sample dataset
+sample_file <- "data/training/samples/Leukemia_GSE28497.csv-1-all-sample-5-percent.csv"
+if (!file.exists(sample_file)) {
+  cat("ERROR: Sample file not found. Run setup step 3 first:\n")
+  cat("  source('data_sampling.r')\n")
+  cat("  generate.samples('data/evaluation/Leukemia_GSE28497.csv.gz', 1, 5, 50, 500)\n")
+  quit(status = 1, save = "no")
+}
 cat("4. Testing dataset load...")
 source("file_utils.r")
-dataset <- read.dataset("data/training/samples/Leukemia_GSE28497.csv-1-all-sample-5-percent.csv")
+dataset <- read.dataset(sample_file)
 cat(" OK -", nrow(dataset), "samples,", ncol(dataset), "genes\n")
 
 # Test gene ID translation

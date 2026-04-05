@@ -68,4 +68,5 @@ if (mean(sil_maxes) > 0.4 && mean(sil_means) > 0.3) {
   cat("The algorithm is working correctly on R 4.5.3.\n")
 } else {
   cat("\nWARNING: Results are significantly lower than thesis values.\n")
+  quit(status = 1, save = "no")
 }

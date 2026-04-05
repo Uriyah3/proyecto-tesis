@@ -446,8 +446,11 @@ calculate.results <- function(datasets_to_process, debug=FALSE) {
         biological_source <- type
       }
       
-      dmatrix_expression = expression.matrix(NULL, dataset=dataset$name)
-      dmatrix_biological = biological.matrix(gene_list, biological_databases[[biological_source]], dataset=dataset$name) 
+      data <- load.dataset(dataset)
+      gene_list <- colnames(data)
+      dmatrix_expression = expression.matrix(t(data), dataset=dataset$name)
+      dmatrix_biological = biological.matrix(gene_list, biological_databases[[biological_source]], dataset=dataset$name)
+      rm(data); gc()
       if (debug) {
         message(paste("Processing", dataset$name, type, '...'))
       }

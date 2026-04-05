@@ -32,11 +32,18 @@ DISGENET_API_KEY=your-api-key-here
 
 ### 2. Install R Packages
 
+**Option A: Using renv (recommended)** — Installs exact package versions from lockfile:
+```r
+install.packages("renv")
+renv::restore()
+```
+
+**Option B: From scratch** — Installs latest compatible versions:
 ```r
 source("package_installer.r")
 ```
 
-Installs ~20 CRAN packages and ~10 Bioconductor packages. Takes 15-30 minutes on first run.
+Either way takes 15-30 minutes on first run. renv is preferred because it guarantees the same versions that were tested.
 
 ### 3. Generate Sample Data
 
